@@ -1,0 +1,407 @@
+{
+  "name": "task-dashboard",
+  "displayName": "Task Dashboard",
+  "description": "Define, run, and manage custom shell tasks from a dedicated sidebar — stop juggling terminals and memorizing commands.",
+  "version": "0.1.0",
+  "publisher": "task-dashboard",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/task-dashboard/task-dashboard.git"
+  },
+  "engines": {
+    "vscode": "^1.122.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "task",
+    "tasks",
+    "runner",
+    "terminal",
+    "process",
+    "dashboard",
+    "shell",
+    "command"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onView:taskDashboard.definitions",
+    "onView:taskDashboard.running"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "taskDashboard",
+          "title": "Task Dashboard",
+          "icon": "media/task-dashboard.svg"
+        }
+      ]
+    },
+    "views": {
+      "taskDashboard": [
+        {
+          "id": "taskDashboard.definitions",
+          "name": "Task Definitions"
+        },
+        {
+          "id": "taskDashboard.running",
+          "name": "Running Tasks"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "taskDashboard.definitions",
+        "contents": "No tasks defined yet.\nCreate a task to run and manage your project commands from here.\n[Add Task](command:taskDashboard.addTask)"
+      }
+    ],
+    "commands": [
+      {
+        "command": "taskDashboard.addTask",
+        "title": "Add Task",
+        "category": "Task Dashboard",
+        "icon": "$(add)"
+      },
+      {
+        "command": "taskDashboard.quickAddTask",
+        "title": "Quick Add Task",
+        "category": "Task Dashboard",
+        "icon": "$(add)"
+      },
+      {
+        "command": "taskDashboard.editTask",
+        "title": "Edit Task",
+        "category": "Task Dashboard",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "taskDashboard.deleteTask",
+        "title": "Delete Task",
+        "category": "Task Dashboard",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "taskDashboard.duplicateTask",
+        "title": "Duplicate Task",
+        "category": "Task Dashboard",
+        "icon": "$(files)"
+      },
+      {
+        "command": "taskDashboard.runTask",
+        "title": "Run Task",
+        "category": "Task Dashboard",
+        "icon": "$(play)"
+      },
+      {
+        "command": "taskDashboard.stopTask",
+        "title": "Stop Task",
+        "category": "Task Dashboard",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "taskDashboard.restartTask",
+        "title": "Restart Task",
+        "category": "Task Dashboard",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "taskDashboard.runAll",
+        "title": "Run All Tasks",
+        "category": "Task Dashboard",
+        "icon": "$(run-all)"
+      },
+      {
+        "command": "taskDashboard.stopAll",
+        "title": "Stop All Tasks",
+        "category": "Task Dashboard",
+        "icon": "$(stop-circle)"
+      },
+      {
+        "command": "taskDashboard.showOutput",
+        "title": "Show Output",
+        "category": "Task Dashboard",
+        "icon": "$(output)"
+      },
+      {
+        "command": "taskDashboard.clearOutput",
+        "title": "Clear Output",
+        "category": "Task Dashboard",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "taskDashboard.searchTasks",
+        "title": "Search Tasks",
+        "category": "Task Dashboard",
+        "icon": "$(search)"
+      },
+      {
+        "command": "taskDashboard.toggleSort",
+        "title": "Toggle Sort Order",
+        "category": "Task Dashboard",
+        "icon": "$(sort-precedence)"
+      },
+      {
+        "command": "taskDashboard.filterScope",
+        "title": "Filter by Scope",
+        "category": "Task Dashboard",
+        "icon": "$(filter-filled)"
+      },
+      {
+        "command": "taskDashboard.refresh",
+        "title": "Refresh",
+        "category": "Task Dashboard",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "taskDashboard.addTask",
+          "when": "view == taskDashboard.definitions",
+          "group": "navigation@1"
+        },
+        {
+          "command": "taskDashboard.quickAddTask",
+          "when": "view == taskDashboard.definitions",
+          "group": "navigation@2"
+        },
+        {
+          "command": "taskDashboard.searchTasks",
+          "when": "view == taskDashboard.definitions",
+          "group": "navigation@3"
+        },
+        {
+          "command": "taskDashboard.toggleSort",
+          "when": "view == taskDashboard.definitions",
+          "group": "navigation@4"
+        },
+        {
+          "command": "taskDashboard.filterScope",
+          "when": "view == taskDashboard.definitions",
+          "group": "navigation@5"
+        },
+        {
+          "command": "taskDashboard.runAll",
+          "when": "view == taskDashboard.definitions",
+          "group": "navigation@6"
+        },
+        {
+          "command": "taskDashboard.refresh",
+          "when": "view == taskDashboard.definitions",
+          "group": "navigation@7"
+        },
+        {
+          "command": "taskDashboard.stopAll",
+          "when": "view == taskDashboard.running",
+          "group": "navigation@1"
+        },
+        {
+          "command": "taskDashboard.refresh",
+          "when": "view == taskDashboard.running",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "taskDashboard.runTask",
+          "when": "view == taskDashboard.definitions && viewItem =~ /^taskDef/",
+          "group": "inline@1"
+        },
+        {
+          "command": "taskDashboard.editTask",
+          "when": "view == taskDashboard.definitions && viewItem =~ /^taskDef/",
+          "group": "inline@2"
+        },
+        {
+          "command": "taskDashboard.duplicateTask",
+          "when": "view == taskDashboard.definitions && viewItem =~ /^taskDef/",
+          "group": "inline@3"
+        },
+        {
+          "command": "taskDashboard.deleteTask",
+          "when": "view == taskDashboard.definitions && viewItem =~ /^taskDef/",
+          "group": "inline@4"
+        },
+        {
+          "command": "taskDashboard.runTask",
+          "when": "view == taskDashboard.definitions && viewItem =~ /^taskDef/",
+          "group": "1_run@1"
+        },
+        {
+          "command": "taskDashboard.editTask",
+          "when": "view == taskDashboard.definitions && viewItem =~ /^taskDef/",
+          "group": "9_modify@1"
+        },
+        {
+          "command": "taskDashboard.duplicateTask",
+          "when": "view == taskDashboard.definitions && viewItem =~ /^taskDef/",
+          "group": "9_modify@2"
+        },
+        {
+          "command": "taskDashboard.deleteTask",
+          "when": "view == taskDashboard.definitions && viewItem =~ /^taskDef/",
+          "group": "9_modify@3"
+        },
+        {
+          "command": "taskDashboard.stopTask",
+          "when": "view == taskDashboard.running && (viewItem == runningTask.running || viewItem == runningTask.stopping)",
+          "group": "inline@1"
+        },
+        {
+          "command": "taskDashboard.restartTask",
+          "when": "view == taskDashboard.running && viewItem =~ /^runningTask\\.(running|exited|failed)/",
+          "group": "inline@2"
+        },
+        {
+          "command": "taskDashboard.showOutput",
+          "when": "view == taskDashboard.running",
+          "group": "inline@3"
+        },
+        {
+          "command": "taskDashboard.stopTask",
+          "when": "view == taskDashboard.running && (viewItem == runningTask.running || viewItem == runningTask.stopping)",
+          "group": "1_run@1"
+        },
+        {
+          "command": "taskDashboard.restartTask",
+          "when": "view == taskDashboard.running && viewItem =~ /^runningTask\\.(running|exited|failed)/",
+          "group": "1_run@2"
+        },
+        {
+          "command": "taskDashboard.showOutput",
+          "when": "view == taskDashboard.running",
+          "group": "1_run@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "taskDashboard.runTask",
+          "when": "false"
+        },
+        {
+          "command": "taskDashboard.stopTask",
+          "when": "false"
+        },
+        {
+          "command": "taskDashboard.restartTask",
+          "when": "false"
+        },
+        {
+          "command": "taskDashboard.editTask",
+          "when": "false"
+        },
+        {
+          "command": "taskDashboard.deleteTask",
+          "when": "false"
+        },
+        {
+          "command": "taskDashboard.duplicateTask",
+          "when": "false"
+        },
+        {
+          "command": "taskDashboard.showOutput",
+          "when": "false"
+        },
+        {
+          "command": "taskDashboard.clearOutput",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Task Dashboard",
+      "properties": {
+        "taskDashboard.logRetentionBytes": {
+          "type": "number",
+          "default": 262144,
+          "minimum": 4096,
+          "description": "Maximum number of bytes of recent task output retained in memory per running instance (tail buffer). Full scrollback lives in the task terminal."
+        },
+        "taskDashboard.stopGraceMs": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 0,
+          "description": "Milliseconds to wait after sending a graceful stop signal (SIGTERM) before force-killing a task."
+        },
+        "taskDashboard.defaultShell": {
+          "type": "string",
+          "default": "",
+          "description": "Shell executable to use when a task requests shell execution and does not specify its own. Empty uses the platform default shell."
+        },
+        "taskDashboard.confirmDelete": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask for confirmation before deleting a task definition."
+        },
+        "taskDashboard.closeTerminalBehavior": {
+          "type": "string",
+          "enum": [
+            "stop",
+            "keep"
+          ],
+          "default": "stop",
+          "enumDescriptions": [
+            "Stop the running task when its terminal is closed.",
+            "Keep the task running when its terminal is closed."
+          ],
+          "description": "What to do with a running task when the user closes its terminal."
+        },
+        "taskDashboard.maxRestartsPerMinute": {
+          "type": "number",
+          "default": 5,
+          "minimum": 0,
+          "description": "Maximum automatic restarts allowed within a one-minute window before the crash-loop breaker stops a task. Set to 0 to disable auto-restart."
+        },
+        "taskDashboard.notifications": {
+          "type": "string",
+          "enum": [
+            "errorsOnly",
+            "all",
+            "none"
+          ],
+          "default": "errorsOnly",
+          "enumDescriptions": [
+            "Only show notifications when a task fails.",
+            "Show notifications for all task lifecycle events.",
+            "Never show task notifications."
+          ],
+          "description": "Controls which task notifications are shown."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run build",
+    "build": "node esbuild.js --production",
+    "watch": "node esbuild.js --watch",
+    "compile-tests": "tsc -p ./ --outDir out",
+    "typecheck": "tsc --noEmit -p .",
+    "lint": "eslint src",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "test:unit": "mocha",
+    "test:integration": "vscode-test",
+    "pretest": "pnpm run compile-tests && pnpm run build",
+    "test": "pnpm run test:unit && pnpm run test:integration",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.10.0",
+    "@types/vscode": "^1.122.0",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.6.2",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.18.0",
+    "glob": "^11.0.0",
+    "mocha": "^11.1.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.21.0"
+  }
+}

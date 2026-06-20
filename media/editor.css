@@ -1,0 +1,292 @@
+/*
+ * Task Editor webview styles.
+ *
+ * Theme-native look via VS Code CSS variables (var(--vscode-...)) so the form
+ * automatically matches light/dark/high-contrast themes. No remote fonts, no
+ * external assets — everything inherits from the host theme.
+ */
+
+:root {
+  --te-gap: 16px;
+  --te-radius: 4px;
+  --te-border: var(--vscode-settings-textInputBorder, var(--vscode-input-border, transparent));
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-editor-background);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  line-height: 1.5;
+}
+
+.editor {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+}
+
+.title {
+  margin: 0 0 24px;
+  font-size: 1.4em;
+  font-weight: 600;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--te-gap);
+}
+
+/* ---- Fields ------------------------------------------------------------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--te-gap);
+}
+
+@media (max-width: 520px) {
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+label,
+legend {
+  font-weight: 600;
+  font-size: 0.92em;
+  padding: 0;
+}
+
+legend {
+  margin-bottom: 6px;
+}
+
+.req {
+  color: var(--vscode-errorForeground);
+  margin-left: 2px;
+}
+
+.hint {
+  margin: 2px 0 0;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.hint code,
+code {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.92em;
+  background-color: var(--vscode-textCodeBlock-background, transparent);
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
+.error {
+  margin: 2px 0 0;
+  min-height: 0;
+  font-size: 0.85em;
+  color: var(--vscode-errorForeground);
+}
+
+.error:empty {
+  display: none;
+}
+
+/* ---- Inputs ------------------------------------------------------------- */
+
+input[type='text'],
+input[type='number'],
+select {
+  width: 100%;
+  padding: 6px 8px;
+  color: var(--vscode-input-foreground);
+  background-color: var(--vscode-input-background);
+  border: 1px solid var(--te-border);
+  border-radius: var(--te-radius);
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+}
+
+input::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}
+
+input:focus,
+select:focus,
+button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+  border-color: var(--vscode-focusBorder);
+}
+
+input[aria-invalid='true'] {
+  border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground));
+}
+
+select {
+  appearance: none;
+  cursor: pointer;
+}
+
+select:disabled,
+input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.row input[type='text'] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---- Checkboxes --------------------------------------------------------- */
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--te-gap);
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.check input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--vscode-checkbox-background);
+  cursor: pointer;
+}
+
+/* ---- Environment variable rows ----------------------------------------- */
+
+.env-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.env-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.env-empty {
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+.codicon-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border: 1px solid var(--te-border);
+  border-radius: var(--te-radius);
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.8em;
+}
+
+/* ---- Buttons ------------------------------------------------------------ */
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  border: 1px solid transparent;
+  border-radius: var(--te-radius);
+  padding: 6px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+button.primary {
+  color: var(--vscode-button-foreground);
+  background-color: var(--vscode-button-background);
+}
+
+button.primary:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+button.secondary {
+  color: var(--vscode-button-secondaryForeground);
+  background-color: var(--vscode-button-secondaryBackground);
+}
+
+button.secondary:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+button.small {
+  align-self: flex-start;
+  padding: 4px 10px;
+  font-size: 0.88em;
+  margin-top: 8px;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+/* ---- Actions bar -------------------------------------------------------- */
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--vscode-editorWidget-border, var(--te-border));
+}

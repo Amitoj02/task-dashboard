@@ -1,0 +1,29 @@
+# Source — only the bundled output ships.
+src/**
+out/**
+.vscode-test/**
+.vscode-test.mjs
+node_modules/**
+
+# Build & tooling configs.
+esbuild.js
+tsconfig*.json
+eslint.config.mjs
+.eslintrc*
+.prettierrc.json
+.prettierignore
+.mocharc.json
+
+# Project files not needed at runtime.
+.github/**
+.vscode/**
+.gitignore
+.git/**
+**/*.ts
+**/*.map
+*.vsix
+pnpm-lock.yaml
+pnpm-workspace.yaml
+.npmrc
+
+# Keep: dist/, media/, package.json, README.md, CHANGELOG.md, LICENSE
