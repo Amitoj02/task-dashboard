@@ -342,6 +342,16 @@
       }
     });
 
+    // Dismiss when keyboard focus (Tab) leaves the picker, mirroring the
+    // outside-click dismissal so a Tab-out never strands an open popover with
+    // no focus inside it. `relatedTarget` is the element gaining focus.
+    dom.iconPicker.addEventListener('focusout', (e) => {
+      const next = /** @type {Node|null} */ (e.relatedTarget);
+      if (isIconOpen() && (!next || !dom.iconPicker.contains(next))) {
+        closeIconPopover();
+      }
+    });
+
     refreshIconTrigger();
   }
 

@@ -326,9 +326,11 @@ input:disabled {
   min-width: 0;
 }
 
+/* Compact button that centers in the search row (no block-button spacing). */
 .icon-clear {
   flex: 0 0 auto;
-  margin-top: 0;
+  padding: 4px 10px;
+  font-size: 0.88em;
 }
 
 .icon-grid {

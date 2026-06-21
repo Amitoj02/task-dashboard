@@ -591,7 +591,7 @@ export class TaskEditorPanel {
                   autocomplete="off" spellcheck="false" placeholder="Search icons…"
                   aria-label="Search icons" aria-controls="icon-grid" aria-expanded="true"
                   aria-autocomplete="list" />
-                <button type="button" id="icon-clear" class="secondary small icon-clear">None</button>
+                <button type="button" id="icon-clear" class="secondary icon-clear">None</button>
               </div>
               <div id="icon-grid" class="icon-grid" role="listbox" aria-label="Icons" tabindex="-1"></div>
               <p id="icon-status" class="icon-status" aria-live="polite"></p>
