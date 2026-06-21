@@ -102,6 +102,11 @@ Task configuration is treated as untrusted: commands are never `eval`'d. By defa
 a command is parsed into an argv vector and the program is spawned directly; shell
 execution is opt-in and passes the command as a single argument to the shell.
 
+## Install
+
+- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=Amitoj02.task-dashboard)
+- [Open VSX Registry](https://open-vsx.org/extension/Amitoj02/task-dashboard)
+
 ## License
 
 [MIT](./LICENSE)
