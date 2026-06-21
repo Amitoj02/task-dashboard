@@ -37,10 +37,7 @@
     "intellij"
   ],
   "main": "./dist/extension.js",
-  "activationEvents": [
-    "onView:taskDashboard.definitions",
-    "onView:taskDashboard.running"
-  ],
+  "activationEvents": [],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
