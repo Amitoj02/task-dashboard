@@ -54,6 +54,27 @@
     /** @type {HTMLButtonElement} */ save: /** @type {any} */ (byId('save')),
   };
 
+  // --- Icon-picker module state --------------------------------------------
+  // Declared up here (not in the picker section below) because the wiring
+  // calls initIconPicker() before that section runs; as `let`/`const` are not
+  // initialized until their declaration executes, defining them later would
+  // leave them in the temporal dead zone at call time.
+
+  /** Codicon ids are lowercase words joined by dashes, e.g. `cloud-download`. */
+  const CODICON_ID = /^[a-z0-9-]+$/;
+
+  /** The id the tree falls back to when a task has no icon set. */
+  const DEFAULT_ICON = 'checklist';
+
+  /** All bundled codicon ids, loaded once from the embedded JSON data block. */
+  let iconNames = /** @type {string[]} */ ([]);
+
+  /** The grid's option cells, in display order (rebuilt on each filter). */
+  let iconCells = /** @type {HTMLElement[]} */ ([]);
+
+  /** Index of the active (keyboard-highlighted) cell, or -1 for none. */
+  let iconActive = -1;
+
   // --- Wiring --------------------------------------------------------------
 
   dom.form.addEventListener('submit', (e) => {
@@ -290,21 +311,6 @@
 
   // --- Icon picker ---------------------------------------------------------
 
-  /** Codicon ids are lowercase words joined by dashes, e.g. `cloud-download`. */
-  const CODICON_ID = /^[a-z0-9-]+$/;
-
-  /** The id the tree falls back to when a task has no icon set. */
-  const DEFAULT_ICON = 'checklist';
-
-  /** All bundled codicon ids, loaded once from the embedded JSON data block. */
-  let iconNames = /** @type {string[]} */ ([]);
-
-  /** The grid's option cells, in display order (rebuilt on each filter). */
-  let iconCells = /** @type {HTMLElement[]} */ ([]);
-
-  /** Index of the active (keyboard-highlighted) cell, or -1 for none. */
-  let iconActive = -1;
-
   /**
    * Wires the icon picker: loads the bundled names and binds the trigger,
    * search box, clear button, grid clicks, and outside-click dismissal.
@@ -471,7 +477,9 @@
     const cell = iconCells[iconActive];
     cell.classList.add('is-active');
     dom.iconSearch.setAttribute('aria-activedescendant', cell.id);
-    cell.scrollIntoView({ block: 'nearest' });
+    if (typeof cell.scrollIntoView === 'function') {
+      cell.scrollIntoView({ block: 'nearest' });
+    }
   }
 
   /**
