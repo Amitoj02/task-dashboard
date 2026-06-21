@@ -17,6 +17,7 @@ eslint.config.mjs
 # Project files not needed at runtime.
 .github/**
 .vscode/**
+.claude/**
 .gitignore
 .git/**
 CONTRIBUTING.md
