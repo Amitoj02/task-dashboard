@@ -519,6 +519,77 @@ describe('TaskManager autoRestart + crash-loop breaker', () => {
   });
 });
 
+describe('TaskManager removeInstance / clearEnded', () => {
+  it('removeInstance drops an ended instance and fires onDidRemoveInstance', async () => {
+    const { manager, store, spawner } = makeManager();
+    const d = store.seed(def());
+    const removed: RunningInstanceId[] = [];
+    manager.onDidRemoveInstance((id) => removed.push(id));
+
+    const task = await manager.run(d.id);
+    spawner.spawned[0].emitExit(0); // → Exited
+
+    const ok = manager.removeInstance(task!.instanceId);
+    assert.equal(ok, true);
+    assert.equal(manager.getInstance(task!.instanceId), undefined);
+    assert.deepEqual(removed, [task!.instanceId]);
+    manager.dispose();
+  });
+
+  it('removeInstance refuses a live instance and fires nothing', async () => {
+    const { manager, store } = makeManager();
+    const d = store.seed(def());
+    const removed: RunningInstanceId[] = [];
+    manager.onDidRemoveInstance((id) => removed.push(id));
+
+    const task = await manager.run(d.id); // Running (live)
+    const ok = manager.removeInstance(task!.instanceId);
+
+    assert.equal(ok, false);
+    assert.ok(manager.getInstance(task!.instanceId), 'live instance is retained');
+    assert.equal(removed.length, 0);
+    manager.dispose();
+  });
+
+  it('removeInstance returns false for an unknown id', () => {
+    const { manager } = makeManager();
+    assert.equal(manager.removeInstance('ghost' as RunningInstanceId), false);
+    manager.dispose();
+  });
+
+  it('clearEnded removes only ended instances and returns the count', async () => {
+    const { manager, store, spawner } = makeManager();
+    const d = store.seed(def({ allowMultipleInstances: true }));
+    const removed: RunningInstanceId[] = [];
+    manager.onDidRemoveInstance((id) => removed.push(id));
+
+    const a = await manager.run(d.id); // will exit
+    const b = await manager.run(d.id); // will fail
+    const c = await manager.run(d.id); // stays live
+
+    spawner.spawned[0].emitExit(0); // a → Exited
+    spawner.spawned[1].emitExit(1); // b → Failed
+
+    const count = manager.clearEnded();
+
+    assert.equal(count, 2);
+    assert.equal(manager.getInstance(a!.instanceId), undefined);
+    assert.equal(manager.getInstance(b!.instanceId), undefined);
+    assert.ok(manager.getInstance(c!.instanceId), 'the live instance is kept');
+    assert.deepEqual([...removed].sort(), [a!.instanceId, b!.instanceId].sort());
+    manager.dispose();
+  });
+
+  it('clearEnded is a no-op when nothing has ended', async () => {
+    const { manager, store } = makeManager();
+    const d = store.seed(def());
+    await manager.run(d.id);
+    assert.equal(manager.clearEnded(), 0);
+    assert.equal(manager.getInstances().length, 1);
+    manager.dispose();
+  });
+});
+
 describe('TaskManager dispose', () => {
   it('terminates live children, clears the tick, and refuses further runs', async () => {
     const { manager, store, spawner, timers } = makeManager();

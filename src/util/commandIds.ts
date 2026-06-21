@@ -42,6 +42,10 @@ export const COMMAND_IDS = {
   showOutput: 'taskDashboard.showOutput',
   /** Clear the terminal for a running instance. */
   clearOutput: 'taskDashboard.clearOutput',
+  /** Remove a single ended instance (and its terminal) from the running list. */
+  removeInstance: 'taskDashboard.removeInstance',
+  /** Remove every ended instance (and their terminals) from the running list. */
+  clearEnded: 'taskDashboard.clearEnded',
   /** Prompt for a search string to filter the definitions tree. */
   searchTasks: 'taskDashboard.searchTasks',
   /** Cycle the definitions tree sort order. */

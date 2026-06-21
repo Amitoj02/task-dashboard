@@ -229,8 +229,20 @@ input:disabled {
   border: 1px solid var(--te-border);
   border-radius: var(--te-radius);
   color: var(--vscode-foreground);
+}
+
+/* Render the codicon glyph at a comfortable size inside the preview box. */
+.codicon-preview.codicon::before {
+  font-size: 18px;
+}
+
+/* No glyph yet: show a subtle placeholder so the box still reads as a preview. */
+.codicon-preview.is-empty::before {
+  content: '?';
+  color: var(--vscode-descriptionForeground);
   font-family: var(--vscode-editor-font-family, monospace);
-  font-size: 0.8em;
+  font-size: 0.85em;
+  opacity: 0.6;
 }
 
 /* ---- Buttons ------------------------------------------------------------ */

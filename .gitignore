@@ -4,3 +4,7 @@ out
 .vscode-test
 *.vsix
 .DS_Store
+
+# Codicon assets are vendored into media/ by esbuild.js from @vscode/codicons.
+media/codicon.css
+media/codicon.ttf

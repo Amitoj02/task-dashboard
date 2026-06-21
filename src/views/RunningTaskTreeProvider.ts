@@ -86,6 +86,7 @@ export class RunningTaskTreeProvider
       this.manager.onDidStartInstance(() => this.debouncedRefresh()),
       this.manager.onDidUpdateInstance(() => this.debouncedRefresh()),
       this.manager.onDidExitInstance(() => this.debouncedRefresh()),
+      this.manager.onDidRemoveInstance(() => this.debouncedRefresh()),
       // Per-second tick: refresh so durations recompute in getTreeItem
       // (VS Code virtualizes — only visible rows are rebuilt).
       this.manager.onDidTick(() => this.changeEmitter.fire(undefined))
