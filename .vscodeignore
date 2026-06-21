@@ -19,6 +19,7 @@ eslint.config.mjs
 .vscode/**
 .gitignore
 .git/**
+CONTRIBUTING.md
 **/*.ts
 **/*.map
 *.vsix
