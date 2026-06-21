@@ -2,7 +2,7 @@
   "name": "task-dashboard",
   "displayName": "Task Dashboard",
   "description": "Define, run, and manage custom shell tasks from a dedicated sidebar.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "Amitoj02",
   "license": "MIT",
   "icon": "media/icon.png",
