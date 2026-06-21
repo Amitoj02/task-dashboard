@@ -81,7 +81,7 @@ export type ViewId = (typeof VIEW_IDS)[keyof typeof VIEW_IDS];
  * order and scope filter) without persisting it in the manifest.
  */
 export const CONTEXT_KEYS = {
-  /** Current definitions sort order (`name-asc` | `name-desc` | `recent`). */
+  /** Current definitions sort order (`name-asc` | `name-desc` | `recent` | `manual`). */
   sortOrder: 'taskDashboard.sortOrder',
   /** Current definitions scope filter (`all` | `global` | `workspace`). */
   scopeFilter: 'taskDashboard.scopeFilter',

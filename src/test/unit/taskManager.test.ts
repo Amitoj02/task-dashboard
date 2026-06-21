@@ -73,6 +73,9 @@ class FakeTaskStore implements ITaskStore {
     this.recordStopCalls.push({ id, code: exitCode });
     return Promise.resolve();
   }
+  public reorder(): never {
+    throw new Error('not used');
+  }
   public dispose(): void {
     this.changeEmitter.dispose();
   }

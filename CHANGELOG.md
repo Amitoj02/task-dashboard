@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Drag-and-drop manual ordering** for the Task Definitions list, backed by a
+  new `manual` sort mode. Drag a task (or a multi-selection) onto another row to
+  reorder it; the view switches to manual sort and persists the arrangement per
+  scope (global and workspace tasks reorder within their own groups). The manual
+  order is kept independently of the displayed sort, so toggling to Name or
+  Most-recent and back preserves your arrangement. The sort toggle now cycles
+  Name (A→Z) → Name (Z→A) → Most recent → Manual.
 - **Clear Stopped Tasks** action in the Running Tasks title bar removes every
   exited/failed instance (and its terminal) in one click; live tasks are kept.
 - Per-row **Remove from List** action on stopped instances to clear a single

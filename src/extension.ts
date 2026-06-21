@@ -133,6 +133,9 @@ export function activate(context: vscode.ExtensionContext): ExtensionTestApi {
 
   const definitionsView = vscode.window.createTreeView(VIEW_IDS.definitions, {
     treeDataProvider: definitionsProvider,
+    dragAndDropController: definitionsProvider,
+    // Allow multi-row selection so a whole group of tasks can be dragged at once.
+    canSelectMany: true,
     showCollapseAll: false,
   });
   const runningView = vscode.window.createTreeView(VIEW_IDS.running, {
@@ -146,6 +149,13 @@ export function activate(context: vscode.ExtensionContext): ExtensionTestApi {
     if (node instanceof RunningNode) {
       output.reveal(node.task.instanceId);
     }
+  });
+
+  // Keep the sort-order context key in step with the provider. The provider owns
+  // the source of truth (it also changes sort on a drag-and-drop reorder), so the
+  // context key is driven from its change event rather than only the toggle command.
+  const sortContextSub = definitionsProvider.onDidChangeSort((sort) => {
+    void vscode.commands.executeCommand('setContext', CONTEXT_KEYS.sortOrder, sort);
   });
 
   // -- Activity-bar running-count badge --------------------------------------
@@ -222,6 +232,7 @@ export function activate(context: vscode.ExtensionContext): ExtensionTestApi {
     definitionsView,
     runningView,
     runningSelectionSub,
+    sortContextSub,
     runningBadgeSub,
     configSub,
     commandsDisposable,

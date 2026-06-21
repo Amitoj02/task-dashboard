@@ -284,6 +284,154 @@ describe('TaskStore query (search / sort / scope)', () => {
   });
 });
 
+describe('TaskStore manual order (reorder + manual sort)', () => {
+  it('manual sort defaults to insertion order until reordered', async () => {
+    const { store } = makeStore();
+    await store.add(input({ name: 'Beta' }), 'workspace');
+    await store.add(input({ name: 'Alpha' }), 'workspace');
+    await store.add(input({ name: 'Gamma' }), 'workspace');
+
+    // No manual order recorded yet: fall back to insertion (add) order.
+    assert.deepEqual(
+      store.query({ sort: 'manual' }).map((d) => d.name),
+      ['Beta', 'Alpha', 'Gamma']
+    );
+  });
+
+  it('reorder() persists a scope order that manual sort then reflects', async () => {
+    const { store } = makeStore();
+    const a = await store.add(input({ name: 'A' }), 'workspace');
+    const b = await store.add(input({ name: 'B' }), 'workspace');
+    const c = await store.add(input({ name: 'C' }), 'workspace');
+
+    await store.reorder('workspace', [c.id, a.id, b.id]);
+    assert.deepEqual(
+      store.query({ sort: 'manual' }).map((d) => d.name),
+      ['C', 'A', 'B']
+    );
+  });
+
+  it('appends never-positioned definitions to the end in insertion order', async () => {
+    const { store } = makeStore();
+    await store.add(input({ name: 'A' }), 'workspace');
+    const b = await store.add(input({ name: 'B' }), 'workspace');
+
+    // Only B is positioned; A and any later additions trail in insertion order.
+    await store.reorder('workspace', [b.id]);
+    await store.add(input({ name: 'C' }), 'workspace');
+    assert.deepEqual(
+      store.query({ sort: 'manual' }).map((d) => d.name),
+      ['B', 'A', 'C']
+    );
+  });
+
+  it('drops deleted ids from the manual order at read time', async () => {
+    const { store } = makeStore();
+    const a = await store.add(input({ name: 'A' }), 'workspace');
+    const b = await store.add(input({ name: 'B' }), 'workspace');
+    const c = await store.add(input({ name: 'C' }), 'workspace');
+
+    await store.reorder('workspace', [c.id, b.id, a.id]);
+    await store.delete(b.id);
+    assert.deepEqual(
+      store.query({ sort: 'manual' }).map((d) => d.name),
+      ['C', 'A']
+    );
+  });
+
+  it('orders each scope independently, global block before workspace block', async () => {
+    const { store } = makeStore();
+    const g1 = await store.add(input({ name: 'G1' }), 'global');
+    const g2 = await store.add(input({ name: 'G2' }), 'global');
+    const w1 = await store.add(input({ name: 'W1' }), 'workspace');
+    const w2 = await store.add(input({ name: 'W2' }), 'workspace');
+
+    await store.reorder('global', [g2.id, g1.id]);
+    await store.reorder('workspace', [w2.id, w1.id]);
+
+    // scope: all -> global (in its order) then workspace (in its order).
+    assert.deepEqual(
+      store.query({ sort: 'manual' }).map((d) => d.name),
+      ['G2', 'G1', 'W2', 'W1']
+    );
+    // A single-scope query yields just that scope's order.
+    assert.deepEqual(
+      store.query({ sort: 'manual', scope: 'workspace' }).map((d) => d.name),
+      ['W2', 'W1']
+    );
+  });
+
+  it('manual sort composes with search (subset stays in manual order)', async () => {
+    const { store } = makeStore();
+    const a = await store.add(input({ name: 'Apple', command: 'x' }), 'workspace');
+    const b = await store.add(input({ name: 'Banana', command: 'x' }), 'workspace');
+    const c = await store.add(input({ name: 'Avocado', command: 'x' }), 'workspace');
+
+    await store.reorder('workspace', [c.id, b.id, a.id]);
+    assert.deepEqual(
+      store.query({ sort: 'manual', search: 'a' }).map((d) => d.name),
+      ['Avocado', 'Banana', 'Apple']
+    );
+  });
+
+  it('reorder() sanitizes: foreign-scope, unknown, and duplicate ids are dropped', async () => {
+    const { store } = makeStore();
+    const w = await store.add(input({ name: 'W' }), 'workspace');
+    const g = await store.add(input({ name: 'G' }), 'global');
+
+    // Feed the workspace order a global id, an unknown id, and a duplicate.
+    await store.reorder('workspace', [w.id, g.id, 'nope' as never, w.id]);
+    assert.deepEqual(
+      store.query({ sort: 'manual', scope: 'workspace' }).map((d) => d.name),
+      ['W']
+    );
+    // The global scope was untouched by the workspace reorder.
+    assert.equal(store.getScope(g.id), 'global');
+  });
+
+  it('reorder() fires onDidChangeDefinitions', async () => {
+    const { store } = makeStore();
+    const a = await store.add(input({ name: 'A' }), 'workspace');
+    let count = 0;
+    const sub = store.onDidChangeDefinitions(() => count++);
+    await store.reorder('workspace', [a.id]);
+    assert.equal(count, 1);
+    sub.dispose();
+  });
+
+  it('persists the manual order across a new store over the same storage', async () => {
+    const globalStorage = new FakeMementoStorage();
+    const workspaceStorage = new FakeMementoStorage();
+    const clock = new FakeClock();
+
+    const store1 = new TaskStore(globalStorage, workspaceStorage, clock);
+    const a = await store1.add(input({ name: 'A' }), 'workspace');
+    const b = await store1.add(input({ name: 'B' }), 'workspace');
+    const c = await store1.add(input({ name: 'C' }), 'workspace');
+    await store1.reorder('workspace', [c.id, a.id, b.id]);
+    store1.dispose();
+
+    const store2 = new TaskStore(globalStorage, workspaceStorage, clock);
+    assert.deepEqual(
+      store2.query({ sort: 'manual' }).map((d) => d.name),
+      ['C', 'A', 'B']
+    );
+  });
+
+  it('survives a corrupt persisted manual order without throwing', () => {
+    const workspaceStorage = new FakeMementoStorage({
+      [STORAGE_KEYS.manualOrder]: 'not-an-array',
+      [STORAGE_KEYS.definitions]: [{ id: 'x', name: 'Only', command: 'c' }],
+    });
+    const store = new TaskStore(new FakeMementoStorage(), workspaceStorage, new FakeClock());
+    // Corrupt order is ignored; the definition still loads and sorts.
+    assert.deepEqual(
+      store.query({ sort: 'manual' }).map((d) => d.name),
+      ['Only']
+    );
+  });
+});
+
 describe('TaskStore run/stop side-data', () => {
   it('recordRun stamps lastStartTime and appends to history', async () => {
     const { store, clock } = makeStore();

@@ -312,8 +312,14 @@ export interface IUserInteraction {
   error(message: string): void;
 }
 
-/** How a {@link ITaskStore.query} result is ordered. */
-export type TaskSort = 'name-asc' | 'name-desc' | 'recent';
+/**
+ * How a {@link ITaskStore.query} result is ordered.
+ *
+ * `manual` orders by the user's hand-arranged, per-scope order (see
+ * {@link ITaskStore.reorder}); definitions with no recorded position fall to the
+ * end in insertion order.
+ */
+export type TaskSort = 'name-asc' | 'name-desc' | 'recent' | 'manual';
 
 /**
  * Parameters that filter and order a {@link ITaskStore.query}.
@@ -426,6 +432,22 @@ export interface ITaskStore {
    */
   recordStop(id: TaskDefinitionId, exitCode: number | null | undefined): Promise<void>;
 
+  /**
+   * Persists a hand-arranged ordering for one scope, used by the `manual`
+   * {@link TaskSort}.
+   *
+   * The order is per-scope and independent of the displayed sort: it is only
+   * *applied* when a query asks for `manual`, so toggling to another sort and
+   * back preserves the arrangement. Ids that do not belong to `scope` (or are
+   * unknown/duplicated) are ignored; definitions omitted from `orderedIds` keep
+   * sorting to the end in insertion order.
+   *
+   * @param scope - The scope whose order is being set.
+   * @param orderedIds - The definition ids in their new order.
+   * @returns A promise that resolves once persisted.
+   */
+  reorder(scope: TaskScope, orderedIds: TaskDefinitionId[]): Promise<void>;
+
   /** Releases resources (the change emitter). */
   dispose(): void;
 }
@@ -434,6 +456,8 @@ export interface ITaskStore {
 export const STORAGE_KEYS = {
   /** Array of {@link TaskDefinition} for the scope. */
   definitions: 'taskDashboard.definitions',
+  /** Array of {@link TaskDefinitionId} giving the scope's `manual` sort order. */
+  manualOrder: 'taskDashboard.manualOrder',
 } as const;
 
 /**
