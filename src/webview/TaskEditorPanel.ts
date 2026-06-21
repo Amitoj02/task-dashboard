@@ -26,6 +26,7 @@ import { randomBytes } from 'node:crypto';
 import type { ITaskStore, IPathValidator } from '../types/contracts';
 import type { TaskDefinitionId } from '../types/ids';
 import {
+  coerceScope,
   hasDuplicateName,
   type TaskDefinition,
   type TaskDefinitionInput,
@@ -53,6 +54,8 @@ interface RawInput {
   autoRestart?: unknown;
   startupDelayMs?: unknown;
   icon?: unknown;
+  /** The chosen scope; honored on add, ignored on edit. Re-coerced by the host. */
+  scope?: unknown;
 }
 
 /** A message sent from the webview to the extension host. */
@@ -278,9 +281,14 @@ export class TaskEditorPanel {
       }
 
       if (this.mode === 'edit' && this.existing) {
+        // Scope is immutable on edit: never read raw.scope here (the select is
+        // disabled in the webview but a disabled control still posts a value).
         await this.store.update(this.existing.id, input);
       } else {
-        await this.store.add(input, this.scope);
+        // Honor the user's chosen scope, re-coercing the untrusted value and
+        // falling back to the panel's default for anything unexpected.
+        const scope = coerceScope(raw.scope, this.scope);
+        await this.store.add(input, scope);
       }
       this.dispose();
     } catch {

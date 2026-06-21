@@ -16,6 +16,26 @@ import type { TaskDefinitionId } from '../types/ids';
 /** Where a task definition lives: shared across all workspaces, or scoped to one. */
 export type TaskScope = 'global' | 'workspace';
 
+/** The full set of valid {@link TaskScope} values, for membership checks. */
+const TASK_SCOPES: ReadonlySet<string> = new Set<TaskScope>(['global', 'workspace']);
+
+/**
+ * Coerces an untrusted value into a {@link TaskScope}, falling back to
+ * `fallback` for anything that is not exactly one of the two known scopes.
+ *
+ * Used at the host boundary (e.g. the webview Task Editor) so a hand-crafted or
+ * malformed message can never smuggle an invalid scope into storage: a value
+ * that is not the literal `'global'` or `'workspace'` deterministically resolves
+ * to the supplied default.
+ *
+ * @param value - The untrusted candidate (typically a webview-supplied string).
+ * @param fallback - The scope to use when `value` is not a known scope.
+ * @returns The validated scope, or `fallback`.
+ */
+export function coerceScope(value: unknown, fallback: TaskScope): TaskScope {
+  return typeof value === 'string' && TASK_SCOPES.has(value) ? (value as TaskScope) : fallback;
+}
+
 /**
  * A user-defined task and its persisted run metadata.
  *

@@ -22,6 +22,7 @@
  */
 
 import * as assert from 'node:assert/strict';
+import * as vscode from 'vscode';
 
 import { activateExtension, longRunningCommand, waitFor } from './helpers';
 import { RunningTaskTreeProvider } from '../../views/RunningTaskTreeProvider';
@@ -151,6 +152,27 @@ describe('Running view', () => {
         typeof item.description === 'string' && item.description.includes('PID'),
         'description should include the PID'
       );
+      // A live row must NOT carry a duration in the description (a ticking value
+      // would require a per-second refresh that dismisses hovers / drops clicks).
+      // The duration is formatted "mm:ss", so its tell-tale colon is absent.
+      assert.ok(
+        typeof item.description === 'string' && !item.description.includes(':'),
+        'a running row should show no duration in its description'
+      );
+
+      // The tooltip is resolved lazily (on hover), not eagerly in getTreeItem.
+      assert.equal(item.tooltip, undefined, 'getTreeItem should not build the tooltip eagerly');
+
+      const resolved = provider.resolveTreeItem(item, node);
+      assert.ok(resolved, 'resolveTreeItem should return the item');
+      assert.ok(
+        resolved.tooltip instanceof vscode.MarkdownString,
+        'resolveTreeItem should populate a MarkdownString tooltip'
+      );
+      const tip = resolved.tooltip.value;
+      assert.ok(tip.includes('Running'), 'tooltip should report the Running status');
+      assert.ok(tip.includes(String(node.task.pid)), 'tooltip should include the PID');
+      assert.ok(tip.includes('Duration'), 'tooltip should include the live duration');
     } finally {
       provider.dispose();
     }

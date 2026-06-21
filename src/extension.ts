@@ -41,6 +41,7 @@ import type { CommandDeps } from './commands/CommandDeps';
 import { CONFIG, CONFIG_DEFAULTS, type TaskDashboardConfig } from './util/config';
 import { CONTEXT_KEYS, VIEW_IDS } from './util/commandIds';
 import type { TaskDefinition } from './models/TaskDefinition';
+import { runningCountBadge } from './models/RunningTask';
 import type { TaskDefinitionId } from './types/ids';
 import { RunningNode } from './views/nodes';
 
@@ -147,6 +148,22 @@ export function activate(context: vscode.ExtensionContext): ExtensionTestApi {
     }
   });
 
+  // -- Activity-bar running-count badge --------------------------------------
+  // Surface the number of currently-running tasks as a numeric badge on the
+  // Task Dashboard activity-bar icon. The badge lives on the "running" view;
+  // VS Code aggregates per-view badges onto the container icon. Updated only on
+  // events that change the live-instance set — never on the per-second tick.
+  const updateRunningBadge = (): void => {
+    runningView.badge = runningCountBadge(manager.getInstances());
+  };
+  updateRunningBadge();
+  const runningBadgeSub = vscode.Disposable.from(
+    manager.onDidStartInstance(updateRunningBadge),
+    manager.onDidUpdateInstance(updateRunningBadge),
+    manager.onDidExitInstance(updateRunningBadge),
+    manager.onDidRemoveInstance(updateRunningBadge)
+  );
+
   // -- Initial context keys ---------------------------------------------------
   void vscode.commands.executeCommand(
     'setContext',
@@ -205,6 +222,7 @@ export function activate(context: vscode.ExtensionContext): ExtensionTestApi {
     definitionsView,
     runningView,
     runningSelectionSub,
+    runningBadgeSub,
     configSub,
     commandsDisposable,
     output,
