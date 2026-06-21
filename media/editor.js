@@ -584,12 +584,12 @@
   function refreshIconTrigger() {
     const id = dom.icon.value.trim();
     if (id && CODICON_ID.test(id)) {
-      dom.iconTriggerGlyph.className = 'codicon-preview codicon codicon-' + id;
+      dom.iconTriggerGlyph.className = 'icon-glyph codicon codicon-' + id;
       dom.iconTriggerLabel.textContent = id;
       dom.iconTriggerLabel.classList.remove('is-default');
     } else {
       // Empty/invalid: preview the default the tree will actually render.
-      dom.iconTriggerGlyph.className = 'codicon-preview codicon codicon-' + DEFAULT_ICON;
+      dom.iconTriggerGlyph.className = 'icon-glyph codicon codicon-' + DEFAULT_ICON;
       dom.iconTriggerLabel.textContent = 'Default (' + DEFAULT_ICON + ')';
       dom.iconTriggerLabel.classList.add('is-default');
     }

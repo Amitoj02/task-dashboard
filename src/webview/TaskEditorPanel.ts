@@ -581,7 +581,7 @@ export class TaskEditorPanel {
             <button type="button" id="icon-trigger" class="icon-trigger" aria-haspopup="dialog"
               aria-expanded="false" aria-labelledby="icon-label icon-trigger-label"
               aria-describedby="icon-help">
-              <span id="icon-trigger-glyph" class="codicon-preview is-empty" aria-hidden="true"></span>
+              <span id="icon-trigger-glyph" class="icon-glyph is-empty" aria-hidden="true"></span>
               <span id="icon-trigger-label" class="icon-trigger-label"></span>
               <span class="codicon codicon-chevron-down icon-trigger-caret" aria-hidden="true"></span>
             </button>

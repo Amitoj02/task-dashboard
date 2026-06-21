@@ -219,7 +219,7 @@ input:disabled {
   line-height: 1;
 }
 
-.codicon-preview {
+.icon-glyph {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -232,12 +232,12 @@ input:disabled {
 }
 
 /* Render the codicon glyph at a comfortable size inside the preview box. */
-.codicon-preview.codicon::before {
+.icon-glyph.codicon::before {
   font-size: 18px;
 }
 
 /* No glyph yet: show a subtle placeholder so the box still reads as a preview. */
-.codicon-preview.is-empty::before {
+.icon-glyph.is-empty::before {
   content: '?';
   color: var(--vscode-descriptionForeground);
   font-family: var(--vscode-editor-font-family, monospace);
@@ -268,7 +268,7 @@ input:disabled {
   border-color: var(--vscode-focusBorder);
 }
 
-.icon-trigger .codicon-preview {
+.icon-trigger .icon-glyph {
   width: 24px;
   height: 24px;
 }
