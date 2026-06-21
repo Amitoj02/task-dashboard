@@ -20,7 +20,8 @@ PID, and duration at a glance.
   (SIGTERM → SIGKILL) with whole-process-group / tree kill so nothing is orphaned.
 - **Auto-restart** - opt-in restart on crash, guarded by a crash-loop breaker.
 - **Search, sort, and scope filtering** - find tasks fast and split global vs.
-  workspace definitions.
+  workspace definitions. Sort by name or most-recent, or **drag tasks into a
+  manual order** of your own.
 - **Persisted, file-free storage** - tasks live in VS Code state, not in stray
   files in your repository.
 
@@ -34,6 +35,12 @@ PID, and duration at a glance.
 4. Use the inline **Run** action (or select a task) to start it.
 5. Watch it in the **Running Tasks** view; select an instance to open its terminal.
 6. **Stop**, **Restart**, or use **Run All** / **Stop All** as needed.
+
+Use the **sort** toggle in the title bar to cycle name, most-recent, and manual
+order. In any sort, **drag a task** (or a multi-selection) onto another row to
+reorder it; the list switches to manual sort and remembers the arrangement.
+Drag-reordering is per scope, so it rearranges global and workspace tasks within
+their own groups.
 
 Definitions are restored when you reload the window. Nothing auto-runs on startup.
 

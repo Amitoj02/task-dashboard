@@ -19,6 +19,7 @@ const SORT_LABELS: Record<string, string> = {
   'name-asc': 'Name (A→Z)',
   'name-desc': 'Name (Z→A)',
   recent: 'Most recent',
+  manual: 'Manual (drag to reorder)',
 };
 
 /** Implements the run-control and view-control command surface. */
@@ -185,10 +186,13 @@ export class RunControlCommands {
     this.deps.setContext(CONTEXT_KEYS.searchActive, trimmed.length > 0);
   }
 
-  /** Cycles the definitions sort order and updates the context key. */
+  /**
+   * Cycles the definitions sort order. The `sortOrder` context key is kept in
+   * step by the provider's `onDidChangeSort` event (wired in `extension.ts`), so
+   * it is not set here.
+   */
   public toggleSort(): void {
     const next = this.deps.definitionsProvider.toggleSort();
-    this.deps.setContext(CONTEXT_KEYS.sortOrder, next);
     if (this.deps.getConfig().notifications === 'all') {
       this.deps.ui.info(`Sorting by ${SORT_LABELS[next] ?? next}.`);
     }

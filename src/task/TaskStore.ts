@@ -42,6 +42,15 @@ export class TaskStore implements ITaskStore {
   /** The owning scope of every known definition. */
   private readonly scopes = new Map<TaskDefinitionId, TaskScope>();
 
+  /**
+   * Per-scope hand-arranged order of definition ids, backing the `manual` sort.
+   *
+   * Persisted independently of the definitions themselves and reconciled against
+   * reality at read time (see {@link applyManualOrder}): stale ids are ignored
+   * and never-positioned definitions sort to the end in insertion order.
+   */
+  private readonly manualOrders = new Map<TaskScope, TaskDefinitionId[]>();
+
   /** Broadcasts after any change to the set of definitions. */
   private readonly changeEmitter = new Emitter<void>();
 
@@ -64,6 +73,7 @@ export class TaskStore implements ITaskStore {
         this.definitions.set(def.id, def);
         this.scopes.set(def.id, scope);
       }
+      this.manualOrders.set(scope, this.loadManualOrder(scope));
     }
   }
 
@@ -100,6 +110,9 @@ export class TaskStore implements ITaskStore {
       );
     }
 
+    if (sort === 'manual') {
+      return this.applyManualOrder(results);
+    }
     return this.sort(results, sort);
   }
 
@@ -213,6 +226,24 @@ export class TaskStore implements ITaskStore {
   }
 
   /** @inheritdoc */
+  public async reorder(scope: TaskScope, orderedIds: TaskDefinitionId[]): Promise<void> {
+    // Keep only ids that actually live in this scope, de-duplicated, in the given
+    // order. This rejects cross-scope/unknown ids and prunes any stale entries.
+    const seen = new Set<TaskDefinitionId>();
+    const sanitized: TaskDefinitionId[] = [];
+    for (const id of orderedIds) {
+      if (this.scopes.get(id) === scope && !seen.has(id)) {
+        seen.add(id);
+        sanitized.push(id);
+      }
+    }
+
+    this.manualOrders.set(scope, sanitized);
+    await this.storageFor(scope).update(STORAGE_KEYS.manualOrder, sanitized);
+    this.changeEmitter.fire();
+  }
+
+  /** @inheritdoc */
   public dispose(): void {
     this.changeEmitter.dispose();
   }
@@ -282,6 +313,50 @@ export class TaskStore implements ITaskStore {
         ? e.commandHistory.filter((c): c is string => typeof c === 'string')
         : [],
     };
+  }
+
+  /**
+   * Loads and defensively validates a scope's persisted manual order.
+   *
+   * Anything that is not an array of strings yields an empty order; individual
+   * non-string entries are dropped. Stale ids (referring to deleted definitions)
+   * are kept here and harmlessly ignored at read time by {@link applyManualOrder}.
+   */
+  private loadManualOrder(scope: TaskScope): TaskDefinitionId[] {
+    let raw: unknown;
+    try {
+      raw = this.storageFor(scope).get(STORAGE_KEYS.manualOrder);
+    } catch {
+      return [];
+    }
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    return raw.filter((v): v is TaskDefinitionId => typeof v === 'string');
+  }
+
+  /**
+   * Orders `defs` by the persisted per-scope manual arrangement.
+   *
+   * Definitions are partitioned by scope (global before workspace, matching
+   * {@link getAll}'s load order), each partition is ordered by its recorded
+   * position, and definitions with no recorded position fall to the end in their
+   * original (insertion) order. The input array is not mutated.
+   */
+  private applyManualOrder(defs: TaskDefinition[]): TaskDefinition[] {
+    const out: TaskDefinition[] = [];
+    for (const scope of SCOPES) {
+      const subset = defs.filter((def) => this.scopes.get(def.id) === scope);
+      const order = this.manualOrders.get(scope) ?? [];
+      const index = new Map<TaskDefinitionId, number>();
+      order.forEach((id, i) => index.set(id, i));
+      const end = order.length;
+      // Stable sort: positioned ids by position; unpositioned ids share `end`
+      // and so keep their incoming (insertion) order behind the positioned ones.
+      subset.sort((a, b) => (index.get(a.id) ?? end) - (index.get(b.id) ?? end));
+      out.push(...subset);
+    }
+    return out;
   }
 
   /** Writes the full definition array for a single scope back to its storage. */
