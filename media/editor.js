@@ -438,8 +438,8 @@
   }
 
   /**
-   * Announces the result count, or — when nothing matches but the query is a
-   * valid id — that Enter will use it verbatim (forward-compat for new codicons).
+   * Announces the result count, or - when nothing matches but the query is a
+   * valid id - that Enter will use it verbatim (forward-compat for new codicons).
    * @param {number} count
    * @param {string} q
    */

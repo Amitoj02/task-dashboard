@@ -11,7 +11,7 @@ const watch = process.argv.includes('--watch');
  * Parses the vendored `codicon.csv` into a sorted, de-duplicated list of codicon
  * ids (the `short_name` column). These are exactly the names the bundled
  * `codicon.css` exposes as `.codicon-<id>` classes, and the names a user may set
- * as a task icon — so deriving the list here keeps the icon picker in lock-step
+ * as a task icon - so deriving the list here keeps the icon picker in lock-step
  * with whatever `@vscode/codicons` version is installed (no hand-maintained,
  * stale list, no network fetch).
  *
@@ -41,7 +41,7 @@ function parseCodiconNames(csv) {
  * render real codicon glyphs and offer a searchable icon picker. The webview's
  * `localResourceRoots` is pinned to `media/` and `node_modules/` never ships in
  * the VSIX, so these files must live under `media/`. All three are generated
- * artifacts — git-ignored and reproduced here on every build/watch from the
+ * artifacts - git-ignored and reproduced here on every build/watch from the
  * `@vscode/codicons` dependency.
  *
  * @returns {void}

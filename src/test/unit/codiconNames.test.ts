@@ -1,9 +1,9 @@
 /**
- * Unit tests for `parseCodiconNames` — the build-time helper (in `esbuild.js`)
+ * Unit tests for `parseCodiconNames` - the build-time helper (in `esbuild.js`)
  * that derives the icon-picker name list from the vendored `@vscode/codicons`
  * CSV. Guards the issue's contract: the list is *generated* (never a stale,
  * hand-maintained array), de-duplicated, sorted, and limited to safe
- * `[a-z0-9-]` ids — no network, no hardcoding.
+ * `[a-z0-9-]` ids - no network, no hardcoding.
  *
  * @remarks Host-free unit test (mocha + tsx, no `vscode`). Imports the helper
  * from the CommonJS `esbuild.js`; its `main()` is guarded behind

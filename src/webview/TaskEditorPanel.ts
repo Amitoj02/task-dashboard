@@ -495,8 +495,8 @@ export class TaskEditorPanel {
     const cspSource = webview.cspSource;
 
     // The codicon id list for the icon picker, embedded as a non-executing JSON
-    // data block (parsed by editor.js). Inlining it keeps the strict CSP intact —
-    // no extra fetch/connect-src and no remote resource — and the values are
+    // data block (parsed by editor.js). Inlining it keeps the strict CSP intact -
+    // no extra fetch/connect-src and no remote resource - and the values are
     // re-validated to `[a-z0-9-]` so the block can never break out of </script>.
     const iconNamesJson = TaskEditorPanel.readCodiconNames(mediaRoot);
 
@@ -639,7 +639,7 @@ export class TaskEditorPanel {
    * Reads the build-generated `media/codicon-names.json` and returns it as a
    * compact JSON string safe to inline in HTML. Every entry is re-validated to a
    * codicon id (`[a-z0-9-]`), so the result can never contain `<`, `>`, `&`, or a
-   * `</script>` sequence. Returns `"[]"` if the file is missing or malformed —
+   * `</script>` sequence. Returns `"[]"` if the file is missing or malformed -
    * the picker then degrades to accepting a typed id rather than crashing.
    */
   private static readCodiconNames(mediaRoot: vscode.Uri): string {
