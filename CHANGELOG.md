@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Per-row **Remove from List** action on stopped instances to clear a single
   finished task and its output.
 
+### Changed
+
+- Clicking a task in the **Task Definitions** list no longer runs it. Selecting a
+  definition now only selects the row; run a task explicitly via the inline Run
+  (play) button or the context menu, so a stray click or Enter can't launch a
+  task by accident.
+
 ### Fixed
 
 - The Task editor's **icon preview** now renders the real codicon glyph (the

@@ -67,10 +67,12 @@ describe('Definitions view', () => {
       assert.equal(wsNode.contextValue, 'taskDef.workspace');
       assert.equal(glNode.contextValue, 'taskDef.global');
 
-      // getTreeItem carries a stable id (the definition id) and a run command.
+      // getTreeItem carries a stable id (the definition id) but NO click command:
+      // selecting a definition must not run it (running is via the inline play
+      // button or the context menu only).
       const wsItem = provider.getTreeItem(wsNode);
       assert.equal(wsItem.id, ws.id, 'TreeItem.id should equal the definition id');
-      assert.equal(wsItem.command?.command, COMMAND_IDS.runTask);
+      assert.equal(wsItem.command, undefined, 'selecting a definition must not run it');
       assert.equal(wsItem.contextValue, 'taskDef.workspace');
     } finally {
       provider.dispose();
