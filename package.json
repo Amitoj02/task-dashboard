@@ -1,13 +1,22 @@
 {
   "name": "task-dashboard",
   "displayName": "Task Dashboard",
-  "description": "Define, run, and manage custom shell tasks from a dedicated sidebar — stop juggling terminals and memorizing commands.",
+  "description": "Define, run, and manage custom shell tasks from a dedicated sidebar - stop juggling terminals and memorizing commands.",
   "version": "0.1.0",
-  "publisher": "task-dashboard",
+  "publisher": "Amitoj02",
   "license": "MIT",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#6B5CF0",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/task-dashboard/task-dashboard.git"
+    "url": "https://github.com/Amitoj02/task-dashboard.git"
+  },
+  "homepage": "https://github.com/Amitoj02/task-dashboard#readme",
+  "bugs": {
+    "url": "https://github.com/Amitoj02/task-dashboard/issues"
   },
   "engines": {
     "vscode": "^1.122.0"

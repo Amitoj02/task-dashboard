@@ -1,9 +1,26 @@
+<div align="center">
+
+<img src="media/icon.png" alt="Task Dashboard" width="128" height="128" />
+
 # Task Dashboard
 
-Define, run, and manage your project's custom shell tasks from a dedicated VS Code
-sidebar. Stop juggling a dozen terminals and stop memorizing commands - keep
+**Define, run, and manage your project's custom shell tasks from a dedicated VS Code sidebar.**
+
+[![VS Code Engine](https://img.shields.io/badge/VS%20Code-%5E1.122.0-2b88d8?style=flat-square&logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
+[![Built with TypeScript](https://img.shields.io/badge/Built%20with-TypeScript-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](./LICENSE)
+
+</div>
+
+Stop juggling a dozen terminals and stop memorizing commands - keep
 `npm run start`, `pnpm dev`, `docker compose up -d`, and friends one click away, with live status,
 PID, and duration at a glance.
+
+<div align="center">
+
+<img src="media/screenshots/demo_1.gif" alt="Task Dashboard demo" width="800" />
+
+</div>
 
 ## Features
 
@@ -24,6 +41,22 @@ PID, and duration at a glance.
   manual order** of your own.
 - **Persisted, file-free storage** - tasks live in VS Code state, not in stray
   files in your repository.
+
+## Screenshots
+
+<div align="center">
+
+<img src="media/screenshots/screenshot_1.png" alt="Add / Edit task editor" width="800" />
+
+<sub><b>Add / Edit editor</b> - capture the command, working directory, environment, shell, icon, and restart policy in one form.</sub>
+
+<br /><br />
+
+<img src="media/screenshots/screenshot_2.png" alt="Task Definitions and Running Tasks views" width="800" />
+
+<sub><b>Task Definitions &amp; Running Tasks</b> - organize your commands, then watch live status, PID, and uptime at a glance.</sub>
+
+</div>
 
 ## Usage
 
