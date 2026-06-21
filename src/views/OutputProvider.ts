@@ -31,6 +31,17 @@ export interface OutputProviderConfig {
    * `stop` terminates the instance; `keep` leaves it running headless.
    */
   closeTerminalBehavior: 'stop' | 'keep';
+
+  /**
+   * Maximum number of bytes (UTF-8) of output the provider retains per instance
+   * to replay when its terminal is first revealed. This is what lets a terminal
+   * that is opened *after* its process has already exited still show the output
+   * (including errors) the process produced — the renderer only captures writes
+   * made while it is open, so the provider keeps its own bounded tail. Trimmed a
+   * whole line at a time from the front when exceeded, so the retained head
+   * never begins mid-line, mid-escape-sequence, or mid-character.
+   */
+  replayLimit: number;
 }
 
 /**
@@ -49,6 +60,27 @@ interface OutputEntry {
 
   /** `true` once the process has exited; the terminal is then kept read-only. */
   exited: boolean;
+
+  /**
+   * `true` once the Pseudoterminal's `open` has fired, i.e. the renderer is
+   * attached and live writes will be displayed. Until then, writes are only
+   * retained in {@link replay} (the renderer would drop them).
+   */
+  opened: boolean;
+
+  /**
+   * Retained, CRLF-normalized output tail (bounded by
+   * {@link OutputProviderConfig.replayLimit}). Replayed in full the first time
+   * the terminal opens, so output survives even when the terminal is revealed
+   * long after the process exited.
+   */
+  replay: string;
+
+  /** Cached UTF-8 byte length of {@link replay}, tracked incrementally. */
+  replayBytes: number;
+
+  /** Exit code captured at exit time, used for a deferred Pseudoterminal close. */
+  exitCode?: number;
 }
 
 /** ANSI escape sequence that clears the screen and scrollback and homes the cursor. */
@@ -85,7 +117,9 @@ export class OutputProvider implements IDisposable {
       manager.onDidOutput((output) => this.handleOutput(output.instanceId, output.chunk)),
       manager.onDidExitInstance((exit) =>
         this.handleExit(exit.instanceId, exit.exitCode, exit.signal)
-      )
+      ),
+      // An ended instance was cleared from the list → drop its terminal.
+      manager.onDidRemoveInstance((instanceId) => this.disposeEntry(instanceId))
     );
   }
 
@@ -142,6 +176,9 @@ export class OutputProvider implements IDisposable {
       writeEmitter,
       closeEmitter,
       exited: false,
+      opened: false,
+      replay: '',
+      replayBytes: 0,
     };
     this.entries.set(instanceId, entry);
 
@@ -149,14 +186,24 @@ export class OutputProvider implements IDisposable {
       onDidWrite: writeEmitter.event,
       onDidClose: closeEmitter.event,
       /**
-       * Called when the terminal is first shown. Replays the core's buffered
-       * tail so revealing an in-flight (or finished) instance shows recent
-       * context, not a blank screen.
+       * Called when the terminal is first shown — the only moment the renderer
+       * begins capturing writes. We replay the full retained tail here (not the
+       * core's buffer, which is discarded on exit) so revealing an instance —
+       * even one that already exited — shows its output instead of a blank
+       * screen. If the process ended before the terminal was ever opened, we
+       * also fire the deferred close now so the exit status is reported.
        */
       open: () => {
-        const buffered = this.manager.getBufferedOutput(instanceId);
-        if (buffered.length > 0) {
-          writeEmitter.fire(toCrlf(buffered.toString('utf8')));
+        const current = this.entries.get(instanceId);
+        if (!current || current.opened) {
+          return;
+        }
+        current.opened = true;
+        if (current.replay.length > 0) {
+          writeEmitter.fire(current.replay);
+        }
+        if (current.exited) {
+          closeEmitter.fire(current.exitCode);
         }
       },
       /**
@@ -172,9 +219,7 @@ export class OutputProvider implements IDisposable {
             /* stop failures are surfaced by the manager's own error handling */
           });
         }
-        this.entries.delete(instanceId);
-        writeEmitter.dispose();
-        closeEmitter.dispose();
+        this.teardownEntry(instanceId);
       },
       // handleInput intentionally omitted in v1: terminals are output-only.
     };
@@ -199,7 +244,13 @@ export class OutputProvider implements IDisposable {
     if (!entry) {
       return;
     }
-    entry.writeEmitter.fire(toCrlf(chunk.toString('utf8')));
+    const text = toCrlf(chunk.toString('utf8'));
+    this.appendReplay(entry, text);
+    // Only the open renderer can display a write; otherwise it lives in `replay`
+    // and is flushed when the terminal first opens.
+    if (entry.opened) {
+      entry.writeEmitter.fire(text);
+    }
   }
 
   /**
@@ -221,12 +272,96 @@ export class OutputProvider implements IDisposable {
       return;
     }
     entry.exited = true;
+    entry.exitCode = exitCode;
 
     const detail = signal ? `signal ${signal}` : `code ${exitCode ?? 0}`;
-    entry.writeEmitter.fire(toCrlf(`\n[process exited: ${detail}]\n`));
-    // Fire the close emitter so the Pseudoterminal reports the exit status, but
-    // do NOT dispose the terminal — the user can keep reading the final output.
-    entry.closeEmitter.fire(exitCode);
+    const line = toCrlf(`\n[process exited: ${detail}]\n`);
+    this.appendReplay(entry, line);
+
+    if (entry.opened) {
+      entry.writeEmitter.fire(line);
+      // Report the exit status, but do NOT dispose the terminal — the user can
+      // keep reading the final output.
+      entry.closeEmitter.fire(exitCode);
+    }
+    // If the terminal was never opened, the close is deferred until `open` so it
+    // can never be reported before the replayed output is written.
+  }
+
+  /**
+   * Appends text to an entry's retained replay tail, keeping it within the
+   * configured byte budget ({@link OutputProviderConfig.replayLimit}). When the
+   * budget is exceeded, whole leading lines are dropped (the output is already
+   * CRLF-normalized) so the retained head never begins mid-line, mid-ANSI-escape,
+   * or mid-character — only a single line longer than the entire budget falls
+   * back to a byte-exact suffix.
+   *
+   * @param entry - The entry whose tail to extend.
+   * @param text - The CRLF-normalized text to append.
+   */
+  private appendReplay(entry: OutputEntry, text: string): void {
+    entry.replay += text;
+    entry.replayBytes += Buffer.byteLength(text, 'utf8');
+    const limit = Math.max(0, this.getConfig().replayLimit);
+    if (entry.replayBytes <= limit) {
+      return;
+    }
+    // Over budget: drop whole leading lines until within it, tracking the byte
+    // total incrementally so we never re-measure the whole tail.
+    let replay = entry.replay;
+    let bytes = entry.replayBytes;
+    while (bytes > limit) {
+      const nl = replay.indexOf('\n');
+      if (nl === -1 || nl + 1 >= replay.length) {
+        // One line is itself over budget: keep its byte-exact suffix.
+        replay = clampUtf8Tail(replay, limit);
+        bytes = Buffer.byteLength(replay, 'utf8');
+        break;
+      }
+      bytes -= Buffer.byteLength(replay.slice(0, nl + 1), 'utf8');
+      replay = replay.slice(nl + 1);
+    }
+    entry.replay = replay;
+    entry.replayBytes = bytes;
+  }
+
+  /**
+   * Disposes everything held for an instance — its terminal and emitters — and
+   * forgets it. Used when an ended instance is cleared from the running list.
+   *
+   * @param instanceId - The instance to drop.
+   */
+  private disposeEntry(instanceId: RunningInstanceId): void {
+    const entry = this.entries.get(instanceId);
+    if (!entry) {
+      return;
+    }
+    const terminal = entry.terminal;
+    // Forget + dispose emitters first so the terminal's own `close` callback
+    // (fired by dispose) becomes a no-op rather than re-entering teardown.
+    this.teardownEntry(instanceId);
+    try {
+      terminal.dispose();
+    } catch {
+      /* already disposed by the host */
+    }
+  }
+
+  /**
+   * Removes an entry from the map and disposes its emitters. Idempotent: a
+   * second call (e.g. the terminal's `close` after {@link disposeEntry}) is a
+   * no-op.
+   *
+   * @param instanceId - The instance to forget.
+   */
+  private teardownEntry(instanceId: RunningInstanceId): void {
+    const entry = this.entries.get(instanceId);
+    if (!entry) {
+      return;
+    }
+    this.entries.delete(instanceId);
+    entry.writeEmitter.dispose();
+    entry.closeEmitter.dispose();
   }
 
   /**
@@ -258,10 +393,10 @@ export class OutputProvider implements IDisposable {
     }
     this.subscriptions.length = 0;
 
-    for (const entry of this.entries.values()) {
-      entry.terminal.dispose();
-      entry.writeEmitter.dispose();
-      entry.closeEmitter.dispose();
+    // Snapshot ids first: disposing a terminal fires its `close` callback, which
+    // mutates `entries` — never iterate the live map while it is being mutated.
+    for (const instanceId of [...this.entries.keys()]) {
+      this.disposeEntry(instanceId);
     }
     this.entries.clear();
     this.instanceCounters.clear();
@@ -278,4 +413,29 @@ export class OutputProvider implements IDisposable {
 function toCrlf(text: string): string {
   // Match a `\n` only when it is not immediately preceded by a `\r`.
   return text.replace(/(?<!\r)\n/g, '\r\n');
+}
+
+/**
+ * Returns at most the trailing `maxBytes` UTF-8 bytes of `text` as a string,
+ * never exceeding the budget. Used only as a last resort for a single line that
+ * on its own exceeds the replay budget. The cut is advanced past any partial
+ * leading multibyte character so the result decodes cleanly (dropping the
+ * partial char rather than emitting a replacement char, which would itself push
+ * the byte count back over budget).
+ *
+ * @param text - The text to clamp.
+ * @param maxBytes - The maximum number of UTF-8 bytes to keep.
+ * @returns The byte-bounded suffix of `text`.
+ */
+function clampUtf8Tail(text: string, maxBytes: number): string {
+  const buf = Buffer.from(text, 'utf8');
+  if (buf.length <= maxBytes) {
+    return text;
+  }
+  let start = buf.length - maxBytes;
+  // Skip UTF-8 continuation bytes (0b10xxxxxx) so we begin on a lead byte.
+  while (start < buf.length && (buf[start] & 0xc0) === 0x80) {
+    start++;
+  }
+  return buf.subarray(start).toString('utf8');
 }

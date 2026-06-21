@@ -278,9 +278,22 @@
 
   // --- Misc ----------------------------------------------------------------
 
+  /** Codicon ids are lowercase words joined by dashes, e.g. `cloud-download`. */
+  const CODICON_ID = /^[a-z0-9-]+$/;
+
+  /**
+   * Renders the entered codicon as its real glyph using the bundled codicon
+   * font. Only class names are ever assigned (never innerHTML), so a hostile
+   * value cannot inject markup; an unknown/invalid id simply renders an empty
+   * preview box.
+   */
   function updateIconPreview() {
     const id = dom.icon.value.trim();
-    dom.iconPreview.textContent = id ? '$(' + id + ')' : '';
+    if (id && CODICON_ID.test(id)) {
+      dom.iconPreview.className = 'codicon-preview codicon codicon-' + id;
+    } else {
+      dom.iconPreview.className = 'codicon-preview is-empty';
+    }
   }
 
   /** @param {boolean} busy */

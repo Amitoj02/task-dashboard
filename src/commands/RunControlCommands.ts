@@ -141,6 +141,32 @@ export class RunControlCommands {
     this.deps.output.clear(instanceId);
   }
 
+  /**
+   * Removes a single ended instance (and its terminal/output) from the running
+   * list. No-op for a live instance — the running/stopping states never expose
+   * this action.
+   *
+   * @param arg - The invoking running node (or instance id).
+   */
+  public removeInstance(arg?: unknown): void {
+    const instanceId = resolveInstanceId(arg);
+    if (!instanceId) {
+      return;
+    }
+    this.deps.manager.removeInstance(instanceId);
+  }
+
+  /**
+   * Clears every ended (exited/failed/stopped) instance and its output from the
+   * Running Tasks list, leaving live instances untouched.
+   */
+  public clearEnded(): void {
+    const removed = this.deps.manager.clearEnded();
+    if (removed > 0 && this.deps.getConfig().notifications === 'all') {
+      this.deps.ui.info(`Cleared ${removed} stopped task${removed === 1 ? '' : 's'}.`);
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Definitions view controls
   // ---------------------------------------------------------------------------

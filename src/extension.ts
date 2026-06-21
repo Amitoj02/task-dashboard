@@ -125,6 +125,8 @@ export function activate(context: vscode.ExtensionContext): ExtensionTestApi {
   const runningProvider = new RunningTaskTreeProvider(manager, clock);
   const outputConfig = (): OutputProviderConfig => ({
     closeTerminalBehavior: config.closeTerminalBehavior,
+    // Reuse the per-instance retention budget (bytes) as the replay tail size.
+    replayLimit: config.logRetentionBytes,
   });
   const output = new OutputProvider(manager, outputConfig);
 
@@ -267,7 +269,13 @@ function readConfig(): TaskDashboardConfig {
   const notifications = str(CONFIG.keys.notifications, CONFIG_DEFAULTS.notifications);
 
   return {
-    logRetentionBytes: num(CONFIG.keys.logRetentionBytes, CONFIG_DEFAULTS.logRetentionBytes),
+    // Enforce the manifest minimum: VS Code's `minimum` is advisory for the
+    // settings UI only, so a hand-edited settings.json (or the config API) can
+    // supply 0 — which would otherwise wipe the in-memory retention/replay tail.
+    logRetentionBytes: Math.max(
+      4096,
+      num(CONFIG.keys.logRetentionBytes, CONFIG_DEFAULTS.logRetentionBytes)
+    ),
     stopGraceMs: num(CONFIG.keys.stopGraceMs, CONFIG_DEFAULTS.stopGraceMs),
     defaultShell: str(CONFIG.keys.defaultShell, CONFIG_DEFAULTS.defaultShell),
     confirmDelete: bool(CONFIG.keys.confirmDelete, CONFIG_DEFAULTS.confirmDelete),

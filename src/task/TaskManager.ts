@@ -110,6 +110,7 @@ export class TaskManager implements ITaskManagerControl {
   private readonly startEmitter = new Emitter<RunningTask>();
   private readonly updateEmitter = new Emitter<RunningTask>();
   private readonly exitEmitter = new Emitter<InstanceExit>();
+  private readonly removeEmitter = new Emitter<RunningInstanceId>();
   private readonly outputEmitter = new Emitter<InstanceOutput>();
   private readonly tickEmitter = new Emitter<void>();
 
@@ -122,6 +123,8 @@ export class TaskManager implements ITaskManagerControl {
   public readonly onDidUpdateInstance: Event<RunningTask> = this.updateEmitter.event;
   /** @inheritdoc */
   public readonly onDidExitInstance: Event<InstanceExit> = this.exitEmitter.event;
+  /** @inheritdoc */
+  public readonly onDidRemoveInstance: Event<RunningInstanceId> = this.removeEmitter.event;
   /** @inheritdoc */
   public readonly onDidOutput: Event<InstanceOutput> = this.outputEmitter.event;
   /** @inheritdoc */
@@ -257,6 +260,32 @@ export class TaskManager implements ITaskManagerControl {
   }
 
   /** @inheritdoc */
+  public removeInstance(instanceId: RunningInstanceId): boolean {
+    const task = this.instances.get(instanceId);
+    if (!task || isLive(task)) {
+      return false;
+    }
+    this.instances.delete(instanceId);
+    this.removeEmitter.fire(instanceId);
+    return true;
+  }
+
+  /** @inheritdoc */
+  public clearEnded(): number {
+    let removed = 0;
+    // Snapshot ids first so we never mutate the map while iterating it.
+    const endedIds = this.getInstances()
+      .filter((t) => !isLive(t))
+      .map((t) => t.instanceId);
+    for (const id of endedIds) {
+      if (this.removeInstance(id)) {
+        removed++;
+      }
+    }
+    return removed;
+  }
+
+  /** @inheritdoc */
   public dispose(): void {
     if (this.disposed) {
       return;
@@ -283,6 +312,7 @@ export class TaskManager implements ITaskManagerControl {
     this.startEmitter.dispose();
     this.updateEmitter.dispose();
     this.exitEmitter.dispose();
+    this.removeEmitter.dispose();
     this.outputEmitter.dispose();
     this.tickEmitter.dispose();
   }

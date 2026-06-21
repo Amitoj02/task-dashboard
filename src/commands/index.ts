@@ -54,6 +54,8 @@ export function registerCommands(
     [COMMAND_IDS.stopAll]: () => ctl.stopAll(),
     [COMMAND_IDS.showOutput]: (arg) => ctl.showOutput(arg),
     [COMMAND_IDS.clearOutput]: (arg) => ctl.clearOutput(arg),
+    [COMMAND_IDS.removeInstance]: (arg) => ctl.removeInstance(arg),
+    [COMMAND_IDS.clearEnded]: () => ctl.clearEnded(),
     [COMMAND_IDS.searchTasks]: () => ctl.searchTasks(),
     [COMMAND_IDS.toggleSort]: () => ctl.toggleSort(),
     [COMMAND_IDS.filterScope]: () => ctl.filterScope(),

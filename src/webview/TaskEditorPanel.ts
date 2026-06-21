@@ -479,6 +479,9 @@ export class TaskEditorPanel {
     const nonce = TaskEditorPanel.makeNonce();
     const mediaRoot = vscode.Uri.joinPath(this.extensionUri, 'media');
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'editor.css')).toString();
+    const codiconUri = webview
+      .asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'codicon.css'))
+      .toString();
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'editor.js')).toString();
     const cspSource = webview.cspSource;
 
@@ -497,6 +500,7 @@ export class TaskEditorPanel {
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="${csp}" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="${codiconUri}" rel="stylesheet" nonce="${nonce}" />
     <link href="${styleUri}" rel="stylesheet" nonce="${nonce}" />
     <title>Task Editor</title>
   </head>

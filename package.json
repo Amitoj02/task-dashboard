@@ -132,6 +132,18 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "taskDashboard.removeInstance",
+        "title": "Remove from List",
+        "category": "Task Dashboard",
+        "icon": "$(close)"
+      },
+      {
+        "command": "taskDashboard.clearEnded",
+        "title": "Clear Stopped Tasks",
+        "category": "Task Dashboard",
+        "icon": "$(clear-all)"
+      },
+      {
         "command": "taskDashboard.searchTasks",
         "title": "Search Tasks",
         "category": "Task Dashboard",
@@ -199,9 +211,14 @@
           "group": "navigation@1"
         },
         {
-          "command": "taskDashboard.refresh",
+          "command": "taskDashboard.clearEnded",
           "when": "view == taskDashboard.running",
           "group": "navigation@2"
+        },
+        {
+          "command": "taskDashboard.refresh",
+          "when": "view == taskDashboard.running",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -261,6 +278,11 @@
           "group": "inline@3"
         },
         {
+          "command": "taskDashboard.removeInstance",
+          "when": "view == taskDashboard.running && viewItem =~ /^runningTask\\.(exited|failed)/",
+          "group": "inline@4"
+        },
+        {
           "command": "taskDashboard.stopTask",
           "when": "view == taskDashboard.running && (viewItem == runningTask.running || viewItem == runningTask.stopping)",
           "group": "1_run@1"
@@ -274,6 +296,11 @@
           "command": "taskDashboard.showOutput",
           "when": "view == taskDashboard.running",
           "group": "1_run@3"
+        },
+        {
+          "command": "taskDashboard.removeInstance",
+          "when": "view == taskDashboard.running && viewItem =~ /^runningTask\\.(exited|failed)/",
+          "group": "9_modify@1"
         }
       ],
       "commandPalette": [
@@ -307,6 +334,10 @@
         },
         {
           "command": "taskDashboard.clearOutput",
+          "when": "false"
+        },
+        {
+          "command": "taskDashboard.removeInstance",
           "when": "false"
         }
       ]
@@ -392,6 +423,7 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.10.0",
     "@types/vscode": "^1.122.0",
+    "@vscode/codicons": "^0.0.45",
     "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.6.2",

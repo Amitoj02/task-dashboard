@@ -494,6 +494,14 @@ export interface ITaskManager {
   /** Fires when an instance ends (after which it remains queryable but inert). */
   readonly onDidExitInstance: Event<InstanceExit>;
 
+  /**
+   * Fires when an ended instance is removed from the running list (via
+   * {@link ITaskManagerControl.removeInstance} / {@link ITaskManagerControl.clearEnded}),
+   * carrying the removed instance id so views and the output sink can tear down
+   * any resources they hold for it.
+   */
+  readonly onDidRemoveInstance: Event<RunningInstanceId>;
+
   /** Fires for each chunk of stdout/stderr produced by a live instance. */
   readonly onDidOutput: Event<InstanceOutput>;
 
@@ -583,4 +591,24 @@ export interface ITaskManagerControl extends ITaskManager {
    * @returns A promise that resolves once every stop has been initiated.
    */
   stopAll(options?: StopOptions): Promise<void>;
+
+  /**
+   * Removes a single *ended* instance from the running list, firing
+   * {@link ITaskManager.onDidRemoveInstance} so its terminal/output can be torn
+   * down. Live instances are never removed (stop them first).
+   *
+   * @param instanceId - The instance to remove.
+   * @returns `true` if an ended instance was removed; `false` if it is unknown
+   *   or still live.
+   */
+  removeInstance(instanceId: RunningInstanceId): boolean;
+
+  /**
+   * Removes every *ended* (exited/failed) instance from the running list,
+   * firing {@link ITaskManager.onDidRemoveInstance} once per removed instance.
+   * Live instances are left untouched.
+   *
+   * @returns The number of instances removed.
+   */
+  clearEnded(): number;
 }
