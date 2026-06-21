@@ -14,7 +14,6 @@ import * as vscode from 'vscode';
 
 import type { ITaskStore, TaskSort } from '../types/contracts';
 import type { TaskDefinition, TaskScope } from '../models/TaskDefinition';
-import { COMMAND_IDS } from '../util/commandIds';
 import { debounce, type Debounced } from '../util/debounce';
 import type { IDisposable } from '../util/event';
 import { TaskDefNode } from './nodes';
@@ -158,12 +157,9 @@ export class TaskTreeProvider implements vscode.TreeDataProvider<TaskDefNode>, v
     item.contextValue = node.contextValue;
     item.resourceUri = undefined;
 
-    // Selecting / double-clicking / Enter runs the task (closest native gesture).
-    item.command = {
-      command: COMMAND_IDS.runTask,
-      title: 'Run',
-      arguments: [node],
-    };
+    // Intentionally no `item.command`: selecting a definition must not run it.
+    // Running is an explicit gesture via the inline Run (play) button or the
+    // context menu, so a stray click or Enter can't launch a task by accident.
 
     return item;
   }
