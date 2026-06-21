@@ -2,9 +2,8 @@
  * The run/lifecycle and view-control commands, grouped into one cohesive class.
  *
  * Covers: run / stop / restart / duplicate a single task, run-all / stop-all,
- * show / clear output, and the definitions-view controls (search, sort cycle,
- * scope filter, refresh). Each method orchestrates the relevant seam(s) and keeps
- * the corresponding `when`-clause context keys in sync where applicable.
+ * show output, and the definitions-view controls (search, sort cycle, scope
+ * filter, refresh). Each method orchestrates the relevant seam(s).
  *
  * @remarks Host-aware command layer.
  */
@@ -12,7 +11,6 @@
 import type { CommandDeps } from './CommandDeps';
 import { resolveDefinitionId, resolveInstanceId } from './resolve';
 import type { ScopeFilter } from '../views/TaskTreeProvider';
-import { CONTEXT_KEYS } from '../util/commandIds';
 
 /** Human-readable labels for each sort order, shown after toggling. */
 const SORT_LABELS: Record<string, string> = {
@@ -133,16 +131,6 @@ export class RunControlCommands {
   }
 
   /**
-   * Clears the terminal for a running instance (or the active one).
-   *
-   * @param arg - The invoking running node (or instance id), if any.
-   */
-  public clearOutput(arg?: unknown): void {
-    const instanceId = resolveInstanceId(arg);
-    this.deps.output.clear(instanceId);
-  }
-
-  /**
    * Removes a single ended instance (and its terminal/output) from the running
    * list. No-op for a live instance — the running/stopping states never expose
    * this action.
@@ -183,13 +171,11 @@ export class RunControlCommands {
     }
     const trimmed = search.trim();
     this.deps.definitionsProvider.setSearch(trimmed);
-    this.deps.setContext(CONTEXT_KEYS.searchActive, trimmed.length > 0);
   }
 
   /**
-   * Cycles the definitions sort order. The `sortOrder` context key is kept in
-   * step by the provider's `onDidChangeSort` event (wired in `extension.ts`), so
-   * it is not set here.
+   * Cycles the definitions sort order, announcing the new order when the
+   * `notifications` setting is `all`.
    */
   public toggleSort(): void {
     const next = this.deps.definitionsProvider.toggleSort();
@@ -212,7 +198,6 @@ export class RunControlCommands {
       return;
     }
     this.deps.definitionsProvider.setScopeFilter(choice);
-    this.deps.setContext(CONTEXT_KEYS.scopeFilter, choice);
   }
 
   /** Forces a refresh of both trees. */

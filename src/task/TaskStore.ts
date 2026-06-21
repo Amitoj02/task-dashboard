@@ -162,6 +162,10 @@ export class TaskStore implements ITaskStore {
     this.scopes.delete(id);
 
     await this.persist(scope);
+    // Prune the id from the persisted manual order too. applyManualOrder already
+    // ignores stale ids at read time, but pruning here stops the stored order
+    // from growing unbounded as definitions are deleted over the store's life.
+    await this.pruneManualOrder(scope, id);
     this.changeEmitter.fire();
   }
 
@@ -333,6 +337,22 @@ export class TaskStore implements ITaskStore {
       return [];
     }
     return raw.filter((v): v is TaskDefinitionId => typeof v === 'string');
+  }
+
+  /**
+   * Removes a single id from a scope's in-memory and persisted manual order.
+   *
+   * A no-op (no write) when the id was not positioned, so a delete of a
+   * never-reordered definition does not touch storage.
+   */
+  private async pruneManualOrder(scope: TaskScope, id: TaskDefinitionId): Promise<void> {
+    const order = this.manualOrders.get(scope);
+    if (!order || !order.includes(id)) {
+      return;
+    }
+    const trimmed = order.filter((entry) => entry !== id);
+    this.manualOrders.set(scope, trimmed);
+    await this.storageFor(scope).update(STORAGE_KEYS.manualOrder, trimmed);
   }
 
   /**

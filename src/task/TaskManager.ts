@@ -418,6 +418,14 @@ export class TaskManager implements ITaskManagerControl {
     this.transition(task, RunningTaskState.Failed, {
       endedAt: this.clock.now(),
     });
+
+    // Record the ended run (no exit code, since it never produced one) so the
+    // definition's last-stop side-data stays consistent with a started-then-
+    // failed instance, mirroring handleRunnerExit. Best-effort: never block.
+    void this.store.recordStop(task.definitionId, undefined).catch(() => {
+      /* persistence failures must not break error handling */
+    });
+
     // Surface the failure as output so the terminal shows why it never started.
     this.outputEmitter.fire({
       instanceId,

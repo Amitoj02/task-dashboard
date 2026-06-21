@@ -339,6 +339,20 @@ describe('TaskStore manual order (reorder + manual sort)', () => {
     );
   });
 
+  it('prunes a deleted id from the PERSISTED manual order (no unbounded growth)', async () => {
+    const { store, workspaceStorage } = makeStore();
+    const a = await store.add(input({ name: 'A' }), 'workspace');
+    const b = await store.add(input({ name: 'B' }), 'workspace');
+    const c = await store.add(input({ name: 'C' }), 'workspace');
+
+    await store.reorder('workspace', [c.id, b.id, a.id]);
+    await store.delete(b.id);
+
+    // The stored order itself is trimmed, not merely ignored at read time, so a
+    // long-lived store does not accumulate ids of long-deleted definitions.
+    assert.deepEqual(workspaceStorage.get<string[]>(STORAGE_KEYS.manualOrder), [c.id, a.id]);
+  });
+
   it('orders each scope independently, global block before workspace block', async () => {
     const { store } = makeStore();
     const g1 = await store.add(input({ name: 'G1' }), 'global');

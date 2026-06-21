@@ -126,9 +126,6 @@ interface OutputEntry {
   live?: LiveTerminal;
 }
 
-/** ANSI escape sequence that clears the screen and scrollback and homes the cursor. */
-const CLEAR_SEQUENCE = '\x1b[2J\x1b[3J\x1b[H';
-
 /**
  * Owns a durable {@link OutputEntry} per running instance and binds it to a
  * Pseudoterminal-backed {@link vscode.Terminal} that is created on start,
@@ -151,7 +148,7 @@ export class OutputProvider implements IDisposable {
   private disposed = false;
 
   /**
-   * @param manager - The running-state source of truth (events + buffered output + stop).
+   * @param manager - The running-state source of truth (lifecycle events + stop).
    * @param getConfig - Reads current provider config; called lazily so changes
    *   to `closeTerminalBehavior` take effect without re-instantiation.
    */
@@ -195,33 +192,6 @@ export class OutputProvider implements IDisposable {
     }
     // `show(true)` preserves the user's current focus (preserveFocus).
     entry.live?.terminal.show(true);
-  }
-
-  /**
-   * Clears a terminal's screen and its retained replay tail.
-   *
-   * @param instanceId - The instance whose terminal to clear. When omitted, the
-   *   currently active terminal is cleared if it is one we own.
-   */
-  public clear(instanceId?: RunningInstanceId): void {
-    if (instanceId !== undefined) {
-      const entry = this.entries.get(instanceId);
-      if (entry) {
-        this.clearEntry(entry);
-      }
-      return;
-    }
-    // Fall back to clearing whichever of our terminals is currently active.
-    const active = vscode.window.activeTerminal;
-    if (!active) {
-      return;
-    }
-    for (const entry of this.entries.values()) {
-      if (entry.live?.terminal === active) {
-        this.clearEntry(entry);
-        return;
-      }
-    }
   }
 
   /**
@@ -420,22 +390,6 @@ export class OutputProvider implements IDisposable {
   }
 
   /**
-   * Clears an entry's visible screen *and* its retained replay tail.
-   *
-   * Resetting the tail (not just the live screen) is what keeps a clear durable:
-   * otherwise the cleared output would reappear the next time {@link reveal}
-   * recreates the terminal and replays. The `exited` state is preserved, so a
-   * later exit line is still appended only once.
-   *
-   * @param entry - The entry to clear.
-   */
-  private clearEntry(entry: OutputEntry): void {
-    entry.replay = '';
-    entry.replayBytes = 0;
-    entry.live?.writeEmitter.fire(CLEAR_SEQUENCE);
-  }
-
-  /**
    * Detaches and disposes only the live terminal's emitters, keeping the durable
    * entry. The terminal itself is not disposed here: this runs *in response to*
    * the terminal already being closed (by the user or the host). Idempotent.
@@ -467,17 +421,17 @@ export class OutputProvider implements IDisposable {
     // Forget first so the terminal's own `close` callback (fired by the dispose
     // below) sees no entry and becomes a no-op rather than re-entering teardown.
     this.entries.delete(instanceId);
-    const live = entry.live;
-    if (!live) {
-      return;
-    }
-    entry.live = undefined;
-    live.writeEmitter.dispose();
-    live.closeEmitter.dispose();
-    try {
-      live.terminal.dispose();
-    } catch {
-      /* already disposed by the host */
+    // Capture the terminal, then reuse detachLiveTerminal for the emitter teardown
+    // (it deliberately leaves the terminal itself alone), and dispose it here:
+    // the one extra step that makes "dispose" drop the terminal too.
+    const terminal = entry.live?.terminal;
+    this.detachLiveTerminal(entry);
+    if (terminal) {
+      try {
+        terminal.dispose();
+      } catch {
+        /* already disposed by the host */
+      }
     }
   }
 

@@ -77,7 +77,14 @@ export interface TaskDefinition {
   /** When `true`, automatically restart the task if it crashes (guarded by a crash-loop breaker). */
   autoRestart?: boolean;
 
-  /** Delay, in milliseconds, before the process is actually spawned. */
+  /**
+   * Delay, in milliseconds, applied before each *automatic* restart after a
+   * crash (only when {@link autoRestart} is enabled). It does **not** delay the
+   * initial or a manually-triggered launch, which always spawn immediately.
+   *
+   * The property keeps its historical `startupDelayMs` name for storage
+   * stability; the editor surfaces it to users as the "Auto-restart delay".
+   */
   startupDelayMs?: number;
 
   /** Optional themed icon id (e.g. a `ThemeIcon` codicon name) shown in the tree. */

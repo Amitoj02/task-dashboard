@@ -23,10 +23,24 @@
  *
  * The split is lexical only — no expansion or evaluation of any kind occurs.
  *
+ * Set `preserveBackslashes` (the runner passes this on Windows) to treat an
+ * unquoted backslash as an ordinary character rather than an escape, so a native
+ * Windows path like `C:\tools\app.exe` survives the split intact instead of
+ * having its separators eaten. Backslash handling inside double quotes (only
+ * `\"` and `\\` are escapes) is unaffected, matching how Windows itself parses
+ * quoted arguments.
+ *
  * @param command - The command line to split.
+ * @param options - Splitter options.
+ * @param options.preserveBackslashes - When `true`, an unquoted backslash is a
+ *   literal character, not an escape (POSIX-style escaping is the default).
  * @returns The argv tokens. An empty/whitespace-only input yields `[]`.
  */
-export function splitArgv(command: string): string[] {
+export function splitArgv(
+  command: string,
+  options?: { preserveBackslashes?: boolean }
+): string[] {
+  const preserveBackslashes = options?.preserveBackslashes ?? false;
   const tokens: string[] = [];
   let current = '';
   let hasToken = false;
@@ -83,7 +97,7 @@ export function splitArgv(command: string): string[] {
     } else if (ch === '"') {
       mode = 'double';
       hasToken = true; // an empty "" is still a token
-    } else if (ch === '\\' && i + 1 < n) {
+    } else if (ch === '\\' && i + 1 < n && !preserveBackslashes) {
       pushChar(command[i + 1]);
       i++;
     } else {

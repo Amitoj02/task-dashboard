@@ -135,12 +135,6 @@
         "icon": "$(output)"
       },
       {
-        "command": "taskDashboard.clearOutput",
-        "title": "Clear Output",
-        "category": "Task Dashboard",
-        "icon": "$(clear-all)"
-      },
-      {
         "command": "taskDashboard.removeInstance",
         "title": "Remove from List",
         "category": "Task Dashboard",
@@ -342,10 +336,6 @@
           "when": "false"
         },
         {
-          "command": "taskDashboard.clearOutput",
-          "when": "false"
-        },
-        {
           "command": "taskDashboard.removeInstance",
           "when": "false"
         }
@@ -414,7 +404,7 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "pnpm run build",
+    "vscode:prepublish": "pnpm run typecheck && pnpm run lint && pnpm run build",
     "build": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
     "compile-tests": "tsc -p ./ --outDir out",
