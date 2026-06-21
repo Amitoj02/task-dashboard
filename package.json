@@ -32,7 +32,9 @@
     "process",
     "dashboard",
     "shell",
-    "command"
+    "command",
+    "run configuration",
+    "intellij"
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
