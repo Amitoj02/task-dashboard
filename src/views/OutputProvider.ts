@@ -1,12 +1,20 @@
 /**
  * Pseudoterminal-backed output rendering for running task instances.
  *
- * Each live instance gets one real VS Code terminal driven by a custom
+ * Each instance gets a real VS Code terminal driven by a custom
  * {@link vscode.Pseudoterminal}. Output flows from the pure core
  * ({@link ITaskManager.onDidOutput}) into the terminal's write emitter, so we
  * inherit the renderer's native ANSI handling, search, links, copy, and
  * auto-scroll for free — and the full scrollback lives in the renderer rather
  * than in the extension host, keeping host memory bounded.
+ *
+ * The live terminal is *decoupled* from the per-instance bookkeeping: an
+ * {@link OutputEntry} (with its retained replay tail) outlives the terminal it
+ * is currently bound to. The terminal is attached on start, torn down when the
+ * user closes its tab, and recreated on demand by {@link OutputProvider.reveal}.
+ * That is what lets "Show Output" keep working after a finished task's terminal
+ * has been closed — the entry survives until the instance is cleared from the
+ * Running Tasks list, so a fresh terminal can always replay the retained output.
  *
  * @remarks
  * This class sits behind a conceptual `IOutputSink` seam: nothing in the core
@@ -34,64 +42,103 @@ export interface OutputProviderConfig {
 
   /**
    * Maximum number of bytes (UTF-8) of output the provider retains per instance
-   * to replay when its terminal is first revealed. This is what lets a terminal
-   * that is opened *after* its process has already exited still show the output
-   * (including errors) the process produced — the renderer only captures writes
-   * made while it is open, so the provider keeps its own bounded tail. Trimmed a
-   * whole line at a time from the front when exceeded, so the retained head
-   * never begins mid-line, mid-escape-sequence, or mid-character.
+   * to replay whenever its terminal is opened. This is what lets a terminal show
+   * output (including errors) that a process produced before the terminal was
+   * attached — whether because the process had already exited when first
+   * revealed, or because the terminal was closed and later reopened. The renderer
+   * only captures writes made while it is open, so the provider keeps its own
+   * bounded tail. Trimmed a whole line at a time from the front when exceeded, so
+   * the retained head never begins mid-line, mid-escape-sequence, or
+   * mid-character.
    */
   replayLimit: number;
 }
 
 /**
- * Internal per-instance bookkeeping: the terminal, the emitters that drive its
- * Pseudoterminal, and whether the underlying process has already exited.
+ * The disposable, host-owned half of an entry: the terminal currently presenting
+ * an instance's output and the emitters that drive its Pseudoterminal.
+ *
+ * This is recreated each time output is revealed after the previous terminal was
+ * closed, so it is deliberately separate from the durable {@link OutputEntry}.
  */
-interface OutputEntry {
+interface LiveTerminal {
   /** The VS Code terminal presenting this instance's output. */
   terminal: vscode.Terminal;
 
   /** Feeds bytes into the terminal (its Pseudoterminal `onDidWrite`). */
   writeEmitter: vscode.EventEmitter<string>;
 
-  /** Signals the Pseudoterminal to close (its `onDidClose`). */
+  /**
+   * The Pseudoterminal's `onDidClose` source. Required by the pty contract but
+   * intentionally never fired: signalling close would make the host drop the
+   * terminal from `window.terminals` and render it unrevealable. The terminal is
+   * instead torn down only by an explicit {@link vscode.Terminal.dispose} (user
+   * close or {@link OutputProvider.disposeEntry}).
+   */
   closeEmitter: vscode.EventEmitter<number | void>;
-
-  /** `true` once the process has exited; the terminal is then kept read-only. */
-  exited: boolean;
 
   /**
    * `true` once the Pseudoterminal's `open` has fired, i.e. the renderer is
    * attached and live writes will be displayed. Until then, writes are only
-   * retained in {@link replay} (the renderer would drop them).
+   * retained in {@link OutputEntry.replay} (the renderer would drop them).
    */
   opened: boolean;
+}
+
+/**
+ * Durable per-instance bookkeeping. Outlives any single {@link LiveTerminal}: it
+ * persists after the process exits *and* after the terminal is closed, until the
+ * instance is removed from the Running Tasks list. Holding the replay tail here —
+ * rather than on the terminal — is what makes output revealable again after a
+ * close.
+ */
+interface OutputEntry {
+  /**
+   * The terminal title (`name #N`), assigned once at start so a terminal that is
+   * recreated by {@link OutputProvider.reveal} keeps the same stable name rather
+   * than bumping the per-name counter again.
+   */
+  title: string;
+
+  /**
+   * `true` once the process has exited. The terminal is intentionally left open
+   * (never signalled to close) so it stays revealable; this only gates the
+   * close-time stop policy so closing an already-finished task never re-stops it.
+   */
+  exited: boolean;
 
   /**
    * Retained, CRLF-normalized output tail (bounded by
-   * {@link OutputProviderConfig.replayLimit}). Replayed in full the first time
-   * the terminal opens, so output survives even when the terminal is revealed
-   * long after the process exited.
+   * {@link OutputProviderConfig.replayLimit}). Replayed in full every time a
+   * terminal opens, so output survives both a process that exited before its
+   * terminal was ever shown and a terminal that was closed and later reopened.
    */
   replay: string;
 
   /** Cached UTF-8 byte length of {@link replay}, tracked incrementally. */
   replayBytes: number;
 
-  /** Exit code captured at exit time, used for a deferred Pseudoterminal close. */
-  exitCode?: number;
+  /**
+   * The terminal currently bound to this instance, or `undefined` when none is
+   * open (never revealed, or closed by the user). Recreated on demand by
+   * {@link OutputProvider.reveal}.
+   */
+  live?: LiveTerminal;
 }
 
 /** ANSI escape sequence that clears the screen and scrollback and homes the cursor. */
 const CLEAR_SEQUENCE = '\x1b[2J\x1b[3J\x1b[H';
 
 /**
- * Owns one Pseudoterminal-backed {@link vscode.Terminal} per running instance and
- * bridges core output/lifecycle events to it.
+ * Owns a durable {@link OutputEntry} per running instance and binds it to a
+ * Pseudoterminal-backed {@link vscode.Terminal} that is created on start,
+ * recreated on demand, and bridges core output/lifecycle events to the renderer.
  */
 export class OutputProvider implements IDisposable {
-  /** Live entries keyed by instance id. Entries persist after exit (read-only). */
+  /**
+   * Durable entries keyed by instance id. An entry outlives its terminal and is
+   * removed only when the instance is cleared from the Running Tasks list.
+   */
   private readonly entries = new Map<RunningInstanceId, OutputEntry>();
 
   /** Per-definition counters used to number terminals (`name #1`, `name #2`, …). */
@@ -118,31 +165,50 @@ export class OutputProvider implements IDisposable {
       manager.onDidExitInstance((exit) =>
         this.handleExit(exit.instanceId, exit.exitCode, exit.signal)
       ),
-      // An ended instance was cleared from the list → drop its terminal.
+      // An ended instance was cleared from the list → drop its entry + terminal.
       manager.onDidRemoveInstance((instanceId) => this.disposeEntry(instanceId))
     );
   }
 
   /**
-   * Reveals the terminal for an instance without stealing focus.
+   * Reveals the terminal for an instance without stealing focus, recreating it
+   * first if the previous terminal was closed.
+   *
+   * This is the fix for "Show Output does nothing after the terminal is closed":
+   * because the {@link OutputEntry} outlives its terminal, a closed terminal can
+   * be rebuilt and the retained output replayed, instead of silently no-opping.
    *
    * @param instanceId - The instance whose terminal to show.
    */
   public reveal(instanceId: RunningInstanceId): void {
     const entry = this.entries.get(instanceId);
+    if (!entry) {
+      // Unknown instance, or one already cleared from the Running Tasks list.
+      return;
+    }
+    if (!entry.live) {
+      // The terminal was closed but the instance is still listed — exited and
+      // browsable, or (under `keep`) running headless. Recreate a fresh
+      // pty-backed terminal; its `open` replays the retained tail (including the
+      // `[process exited]` line for a finished instance).
+      this.attachTerminal(instanceId, entry);
+    }
     // `show(true)` preserves the user's current focus (preserveFocus).
-    entry?.terminal.show(true);
+    entry.live?.terminal.show(true);
   }
 
   /**
-   * Clears a terminal's screen and scrollback.
+   * Clears a terminal's screen and its retained replay tail.
    *
    * @param instanceId - The instance whose terminal to clear. When omitted, the
    *   currently active terminal is cleared if it is one we own.
    */
   public clear(instanceId?: RunningInstanceId): void {
     if (instanceId !== undefined) {
-      this.entries.get(instanceId)?.writeEmitter.fire(CLEAR_SEQUENCE);
+      const entry = this.entries.get(instanceId);
+      if (entry) {
+        this.clearEntry(entry);
+      }
       return;
     }
     // Fall back to clearing whichever of our terminals is currently active.
@@ -151,15 +217,15 @@ export class OutputProvider implements IDisposable {
       return;
     }
     for (const entry of this.entries.values()) {
-      if (entry.terminal === active) {
-        entry.writeEmitter.fire(CLEAR_SEQUENCE);
+      if (entry.live?.terminal === active) {
+        this.clearEntry(entry);
         return;
       }
     }
   }
 
   /**
-   * Handles a new instance: creates emitters, a Pseudoterminal, and a terminal.
+   * Handles a new instance: creates the durable entry and attaches a terminal.
    *
    * @param instanceId - The new instance's id.
    * @param name - The instance's display name (used for the terminal title).
@@ -169,18 +235,36 @@ export class OutputProvider implements IDisposable {
       return;
     }
 
-    const writeEmitter = new vscode.EventEmitter<string>();
-    const closeEmitter = new vscode.EventEmitter<number | void>();
     const entry: OutputEntry = {
-      terminal: undefined as never,
-      writeEmitter,
-      closeEmitter,
+      title: `${name} #${this.nextInstanceNumber(name)}`,
       exited: false,
-      opened: false,
       replay: '',
       replayBytes: 0,
     };
     this.entries.set(instanceId, entry);
+    this.attachTerminal(instanceId, entry);
+  }
+
+  /**
+   * Builds the {@link LiveTerminal} half of an entry: fresh emitters, a
+   * Pseudoterminal, and a terminal. Used both at start and when {@link reveal}
+   * recreates a terminal that the user had closed.
+   *
+   * @param instanceId - The owning instance.
+   * @param entry - The durable entry to bind the new terminal to. Its existing
+   *   {@link OutputEntry.replay}/{@link OutputEntry.exited} state drives what the
+   *   terminal shows once opened.
+   */
+  private attachTerminal(instanceId: RunningInstanceId, entry: OutputEntry): void {
+    const writeEmitter = new vscode.EventEmitter<string>();
+    const closeEmitter = new vscode.EventEmitter<number | void>();
+    const live: LiveTerminal = {
+      terminal: undefined as never,
+      writeEmitter,
+      closeEmitter,
+      opened: false,
+    };
+    entry.live = live;
 
     const pty: vscode.Pseudoterminal = {
       onDidWrite: writeEmitter.event,
@@ -188,53 +272,60 @@ export class OutputProvider implements IDisposable {
       /**
        * Called when the terminal is first shown — the only moment the renderer
        * begins capturing writes. We replay the full retained tail here (not the
-       * core's buffer, which is discarded on exit) so revealing an instance —
-       * even one that already exited — shows its output instead of a blank
-       * screen. If the process ended before the terminal was ever opened, we
-       * also fire the deferred close now so the exit status is reported.
+       * core's buffer, which is discarded on exit) so opening a terminal — even
+       * for an instance that already exited, or one being reopened after a close
+       * — shows its output (including the `[process exited]` line) instead of a
+       * blank screen.
        */
       open: () => {
-        const current = this.entries.get(instanceId);
-        if (!current || current.opened) {
+        // Ignore a late `open` from a terminal we have already detached/replaced.
+        if (entry.live !== live || live.opened) {
           return;
         }
-        current.opened = true;
-        if (current.replay.length > 0) {
-          writeEmitter.fire(current.replay);
-        }
-        if (current.exited) {
-          closeEmitter.fire(current.exitCode);
+        live.opened = true;
+        if (entry.replay.length > 0) {
+          writeEmitter.fire(entry.replay);
         }
       },
       /**
        * Called when the terminal is closed (by the user or by us). If the
-       * instance is still alive and policy says so, stop it.
+       * instance is still alive and policy says so, stop it. Either way only the
+       * live terminal is dropped — the durable entry (and its replay tail) is
+       * kept so the output stays revealable.
        */
       close: () => {
-        const current = this.entries.get(instanceId);
+        // Ignore a stale close from a terminal we have already detached/replaced,
+        // or one whose entry was removed (disposeEntry forgets it first).
+        if (!this.entries.has(instanceId) || entry.live !== live) {
+          return;
+        }
         // Only stop on user-initiated close while the process is still alive.
-        if (current && !current.exited && this.getConfig().closeTerminalBehavior === 'stop') {
+        if (!entry.exited && this.getConfig().closeTerminalBehavior === 'stop') {
           // The stop is best-effort; never let a rejection escape into the host.
           void this.manager.stop(instanceId).catch(() => {
             /* stop failures are surfaced by the manager's own error handling */
           });
         }
-        this.teardownEntry(instanceId);
+        // Drop only the live terminal; the entry persists until the instance is
+        // cleared from the list (onDidRemoveInstance → disposeEntry), so reveal()
+        // can recreate a terminal and replay the retained output later.
+        this.detachLiveTerminal(entry);
       },
       // handleInput intentionally omitted in v1: terminals are output-only.
     };
 
     const terminal = vscode.window.createTerminal({
-      name: `${name} #${this.nextInstanceNumber(name)}`,
+      name: entry.title,
       pty,
       iconPath: new vscode.ThemeIcon('terminal'),
       isTransient: true,
     });
-    entry.terminal = terminal;
+    live.terminal = terminal;
   }
 
   /**
-   * Forwards a chunk of process output to the matching terminal.
+   * Forwards a chunk of process output to the matching terminal, always retaining
+   * it in the replay tail so it survives a later terminal close/reopen.
    *
    * @param instanceId - The producing instance.
    * @param chunk - Raw output bytes from the core.
@@ -246,17 +337,24 @@ export class OutputProvider implements IDisposable {
     }
     const text = toCrlf(chunk.toString('utf8'));
     this.appendReplay(entry, text);
-    // Only the open renderer can display a write; otherwise it lives in `replay`
-    // and is flushed when the terminal first opens.
-    if (entry.opened) {
-      entry.writeEmitter.fire(text);
+    // Only an open renderer can display a write; otherwise it lives in `replay`
+    // and is flushed when a terminal next opens.
+    if (entry.live?.opened) {
+      entry.live.writeEmitter.fire(text);
     }
   }
 
   /**
-   * Handles an instance exit: writes a final status line, signals the
-   * Pseudoterminal to close, and marks the entry read-only while keeping the
-   * terminal so the output stays browsable.
+   * Handles an instance exit: writes a final status line and marks the entry
+   * exited, while keeping the terminal open so the output stays browsable.
+   *
+   * Crucially it does *not* signal the Pseudoterminal to close. Firing
+   * `onDidClose` makes the host treat the terminal as finished and drop it from
+   * `window.terminals` — after which it can never be re-shown, and the pty's
+   * `close` callback never fires either, so a closed tab could not be detected.
+   * Leaving it a live, output-complete terminal (the `[process exited]` line
+   * conveys the status) is what makes {@link reveal} reliable afterwards and
+   * gives the pty `close` callback a chance to run when the user closes the tab.
    *
    * @param instanceId - The instance that ended.
    * @param exitCode - The process exit code, if any.
@@ -272,20 +370,16 @@ export class OutputProvider implements IDisposable {
       return;
     }
     entry.exited = true;
-    entry.exitCode = exitCode;
 
     const detail = signal ? `signal ${signal}` : `code ${exitCode ?? 0}`;
     const line = toCrlf(`\n[process exited: ${detail}]\n`);
     this.appendReplay(entry, line);
 
-    if (entry.opened) {
-      entry.writeEmitter.fire(line);
-      // Report the exit status, but do NOT dispose the terminal — the user can
-      // keep reading the final output.
-      entry.closeEmitter.fire(exitCode);
+    // Only an open renderer can display the line now; otherwise it lives in
+    // `replay` and is flushed when a terminal next opens.
+    if (entry.live?.opened) {
+      entry.live.writeEmitter.fire(line);
     }
-    // If the terminal was never opened, the close is deferred until `open` so it
-    // can never be reported before the replayed output is written.
   }
 
   /**
@@ -326,8 +420,42 @@ export class OutputProvider implements IDisposable {
   }
 
   /**
+   * Clears an entry's visible screen *and* its retained replay tail.
+   *
+   * Resetting the tail (not just the live screen) is what keeps a clear durable:
+   * otherwise the cleared output would reappear the next time {@link reveal}
+   * recreates the terminal and replays. The `exited` state is preserved, so a
+   * later exit line is still appended only once.
+   *
+   * @param entry - The entry to clear.
+   */
+  private clearEntry(entry: OutputEntry): void {
+    entry.replay = '';
+    entry.replayBytes = 0;
+    entry.live?.writeEmitter.fire(CLEAR_SEQUENCE);
+  }
+
+  /**
+   * Detaches and disposes only the live terminal's emitters, keeping the durable
+   * entry. The terminal itself is not disposed here: this runs *in response to*
+   * the terminal already being closed (by the user or the host). Idempotent.
+   *
+   * @param entry - The entry whose live terminal to detach.
+   */
+  private detachLiveTerminal(entry: OutputEntry): void {
+    const live = entry.live;
+    if (!live) {
+      return;
+    }
+    entry.live = undefined;
+    live.writeEmitter.dispose();
+    live.closeEmitter.dispose();
+  }
+
+  /**
    * Disposes everything held for an instance — its terminal and emitters — and
-   * forgets it. Used when an ended instance is cleared from the running list.
+   * forgets the entry. Used when an ended instance is cleared from the running
+   * list (and during {@link dispose}).
    *
    * @param instanceId - The instance to drop.
    */
@@ -336,32 +464,21 @@ export class OutputProvider implements IDisposable {
     if (!entry) {
       return;
     }
-    const terminal = entry.terminal;
-    // Forget + dispose emitters first so the terminal's own `close` callback
-    // (fired by dispose) becomes a no-op rather than re-entering teardown.
-    this.teardownEntry(instanceId);
+    // Forget first so the terminal's own `close` callback (fired by the dispose
+    // below) sees no entry and becomes a no-op rather than re-entering teardown.
+    this.entries.delete(instanceId);
+    const live = entry.live;
+    if (!live) {
+      return;
+    }
+    entry.live = undefined;
+    live.writeEmitter.dispose();
+    live.closeEmitter.dispose();
     try {
-      terminal.dispose();
+      live.terminal.dispose();
     } catch {
       /* already disposed by the host */
     }
-  }
-
-  /**
-   * Removes an entry from the map and disposes its emitters. Idempotent: a
-   * second call (e.g. the terminal's `close` after {@link disposeEntry}) is a
-   * no-op.
-   *
-   * @param instanceId - The instance to forget.
-   */
-  private teardownEntry(instanceId: RunningInstanceId): void {
-    const entry = this.entries.get(instanceId);
-    if (!entry) {
-      return;
-    }
-    this.entries.delete(instanceId);
-    entry.writeEmitter.dispose();
-    entry.closeEmitter.dispose();
   }
 
   /**

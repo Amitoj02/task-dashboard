@@ -18,10 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The Task editor's **icon preview** now renders the real codicon glyph (the
   bundled `@vscode/codicons` font) instead of the literal `$(id)` text.
-- **Show Output** now reliably reveals a task's terminal. Output — including
-  stderr and spawn failures from short-lived/failed tasks — is retained and
+- **Show Output** now reliably reveals a task's terminal. Output - including
+  stderr and spawn failures from short-lived/failed tasks - is retained and
   replayed when the terminal is first opened, so it no longer shows a blank
   screen for a task that already exited.
+- **Show Output** keeps working after a finished task's terminal tab is closed.
+  The retained output now outlives the terminal, so reopening output for an
+  instance that is still listed (Exited/Failed) recreates a fresh terminal and
+  replays the log instead of silently doing nothing. A finished task's terminal
+  is also kept open (with a `[process exited: ...]` line) until you close it or
+  **Clear Stopped Tasks**, rather than vanishing the moment the process ends.
 
 ## [0.1.0] - 2026-06-20
 

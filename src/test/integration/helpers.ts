@@ -65,6 +65,20 @@ export function longRunningCommand(): string {
 }
 
 /**
+ * Builds a trivial, cross-platform command that prints a line and exits cleanly.
+ *
+ * The counterpart to {@link longRunningCommand}: it reaches a terminal state on
+ * its own (exit code 0) almost immediately, which is exactly what the output
+ * "show after close" path needs — an instance that is still *listed* (Exited) but
+ * whose process is gone.
+ *
+ * @returns A command string that emits one line of stdout, then exits 0.
+ */
+export function shortLivedCommand(): string {
+  return `"${process.execPath}" -e "console.log('hello from task'); process.exit(0)"`;
+}
+
+/**
  * Polls `predicate` until it returns `true` or the timeout elapses.
  *
  * Integration timing is inherently slow and racy (real OS processes, a real
