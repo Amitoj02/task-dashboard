@@ -1,6 +1,6 @@
 # Contributing to Task Dashboard
 
-Thanks for your interest in improving **Task Dashboard** — a VS Code extension for
+Thanks for your interest in improving **Task Dashboard** - a VS Code extension for
 defining and managing custom shell tasks from a dedicated sidebar. This guide
 covers everything you need to get a development build running, make a change, and
 open a pull request.
@@ -15,7 +15,7 @@ open a pull request.
 
 This project uses **pnpm** exclusively. Please don't commit an `npm`/`yarn`
 lockfile. The committed `.npmrc` and `pnpm-workspace.yaml` (which pre-approves the
-native `esbuild` build) are part of the setup — a plain `pnpm install` is all you
+native `esbuild` build) are part of the setup - a plain `pnpm install` is all you
 need.
 
 ## Getting started
@@ -55,7 +55,7 @@ pnpm typecheck && pnpm lint && pnpm test:unit && pnpm build
 ```
 
 `pnpm test:integration` downloads a VS Code build and needs a display (or
-`xvfb-run` on headless Linux), so it may be environment-gated locally — but the
+`xvfb-run` on headless Linux), so it may be environment-gated locally - but the
 test files must still compile (`pnpm compile-tests`).
 
 ## Architecture & the one load-bearing rule
@@ -72,7 +72,7 @@ src/
   capabilities (storage, spawning, the clock, timers, filesystem, user prompts)
   arrive through interfaces in `src/types/contracts.ts` and are injected via
   constructors (dependency injection). This is what keeps the core unit-testable
-  without an Electron host. **An ESLint rule enforces this** — a violating import
+  without an Electron host. **An ESLint rule enforces this** - a violating import
   fails `pnpm lint`.
 - The **host layer** is the only place concrete adapters are built; `extension.ts`
   is the composition root that wires everything together and registers disposables.
@@ -123,7 +123,7 @@ Open a GitHub issue with:
 - **Features:** the problem you're solving and, if you have one, a sketch of the
   UX. The roadmap intentionally leaves room for task groups, environment-variable
   editing, auto-start, task dependencies, log search/persistence, templates,
-  Docker, remote SSH, and config export/import — proposals in those areas are
+  Docker, remote SSH, and config export/import - proposals in those areas are
   especially welcome.
 
 ## Code of conduct

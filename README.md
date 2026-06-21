@@ -1,27 +1,27 @@
 # Task Dashboard
 
 Define, run, and manage your project's custom shell tasks from a dedicated VS Code
-sidebar. Stop juggling a dozen terminals and stop memorizing commands — keep
-`task air`, `pnpm dev`, `pnpm proxy`, and friends one click away, with live status,
+sidebar. Stop juggling a dozen terminals and stop memorizing commands - keep
+`npm run start`, `pnpm dev`, `docker compose up -d`, and friends one click away, with live status,
 PID, and duration at a glance.
 
 ## Features
 
-- **Task Definitions view** — create and organize your commands. Each task captures
+- **Task Definitions view** - create and organize your commands. Each task captures
   its command, working directory, environment variables, shell, and restart policy.
-- **Running Tasks view** — see every active instance with a live status icon, PID,
+- **Running Tasks view** - see every active instance with a live status icon, PID,
   and uptime. Stop, restart, or jump to its output instantly.
-- **Real terminals for output** — each running task gets its own
+- **Real terminals for output** - each running task gets its own
   Pseudoterminal-backed terminal with native ANSI colors, search, clickable links,
   copy, and auto-scroll. No bundled terminal emulator, no webview surface for output.
-- **Modern Add/Edit editor** — a hardened webview form for the full task model, plus
+- **Modern Add/Edit editor** - a hardened webview form for the full task model, plus
   a native **Quick Add** for the fast path.
-- **Run controls** — Run, Stop, Restart, Run All, Stop All. Graceful stop
+- **Run controls** - Run, Stop, Restart, Run All, Stop All. Graceful stop
   (SIGTERM → SIGKILL) with whole-process-group / tree kill so nothing is orphaned.
-- **Auto-restart** — opt-in restart on crash, guarded by a crash-loop breaker.
-- **Search, sort, and scope filtering** — find tasks fast and split global vs.
+- **Auto-restart** - opt-in restart on crash, guarded by a crash-loop breaker.
+- **Search, sort, and scope filtering** - find tasks fast and split global vs.
   workspace definitions.
-- **Persisted, file-free storage** — tasks live in VS Code state, not in stray
+- **Persisted, file-free storage** - tasks live in VS Code state, not in stray
   files in your repository.
 
 ## Usage
