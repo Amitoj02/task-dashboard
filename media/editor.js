@@ -35,7 +35,15 @@
     /** @type {HTMLInputElement} */ shell: input('shell'),
     /** @type {HTMLInputElement} */ startupDelayMs: input('startupDelayMs'),
     /** @type {HTMLInputElement} */ icon: input('icon'),
-    /** @type {HTMLSpanElement} */ iconPreview: /** @type {any} */ (byId('icon-preview')),
+    /** @type {HTMLDivElement} */ iconPicker: /** @type {any} */ (byId('icon-picker')),
+    /** @type {HTMLButtonElement} */ iconTrigger: /** @type {any} */ (byId('icon-trigger')),
+    /** @type {HTMLSpanElement} */ iconTriggerGlyph: /** @type {any} */ (byId('icon-trigger-glyph')),
+    /** @type {HTMLSpanElement} */ iconTriggerLabel: /** @type {any} */ (byId('icon-trigger-label')),
+    /** @type {HTMLDivElement} */ iconPopover: /** @type {any} */ (byId('icon-popover')),
+    /** @type {HTMLInputElement} */ iconSearch: input('icon-search'),
+    /** @type {HTMLButtonElement} */ iconClear: /** @type {any} */ (byId('icon-clear')),
+    /** @type {HTMLDivElement} */ iconGrid: /** @type {any} */ (byId('icon-grid')),
+    /** @type {HTMLParagraphElement} */ iconStatus: /** @type {any} */ (byId('icon-status')),
     /** @type {HTMLInputElement} */ allowMultipleInstances: input('allowMultipleInstances'),
     /** @type {HTMLInputElement} */ autoRestart: input('autoRestart'),
     /** @type {HTMLSelectElement} */ scope: /** @type {any} */ (byId('scope')),
@@ -45,6 +53,27 @@
     /** @type {HTMLButtonElement} */ cancel: /** @type {any} */ (byId('cancel')),
     /** @type {HTMLButtonElement} */ save: /** @type {any} */ (byId('save')),
   };
+
+  // --- Icon-picker module state --------------------------------------------
+  // Declared up here (not in the picker section below) because the wiring
+  // calls initIconPicker() before that section runs; as `let`/`const` are not
+  // initialized until their declaration executes, defining them later would
+  // leave them in the temporal dead zone at call time.
+
+  /** Codicon ids are lowercase words joined by dashes, e.g. `cloud-download`. */
+  const CODICON_ID = /^[a-z0-9-]+$/;
+
+  /** The id the tree falls back to when a task has no icon set. */
+  const DEFAULT_ICON = 'checklist';
+
+  /** All bundled codicon ids, loaded once from the embedded JSON data block. */
+  let iconNames = /** @type {string[]} */ ([]);
+
+  /** The grid's option cells, in display order (rebuilt on each filter). */
+  let iconCells = /** @type {HTMLElement[]} */ ([]);
+
+  /** Index of the active (keyboard-highlighted) cell, or -1 for none. */
+  let iconActive = -1;
 
   // --- Wiring --------------------------------------------------------------
 
@@ -68,7 +97,7 @@
     el.addEventListener('input', () => setError(id, ''));
   }
 
-  dom.icon.addEventListener('input', updateIconPreview);
+  initIconPicker();
 
   window.addEventListener('message', (event) => onMessage(event.data));
 
@@ -129,7 +158,8 @@
     dom.scope.disabled = Boolean(msg.scopeLocked);
 
     renderEnvRows(existing.environmentVariables);
-    updateIconPreview();
+    closeIconPopover();
+    refreshIconTrigger();
     renderErrors({});
     dom.name.focus();
   }
@@ -279,25 +309,293 @@
     }
   }
 
-  // --- Misc ----------------------------------------------------------------
-
-  /** Codicon ids are lowercase words joined by dashes, e.g. `cloud-download`. */
-  const CODICON_ID = /^[a-z0-9-]+$/;
+  // --- Icon picker ---------------------------------------------------------
 
   /**
-   * Renders the entered codicon as its real glyph using the bundled codicon
-   * font. Only class names are ever assigned (never innerHTML), so a hostile
-   * value cannot inject markup; an unknown/invalid id simply renders an empty
-   * preview box.
+   * Wires the icon picker: loads the bundled names and binds the trigger,
+   * search box, clear button, grid clicks, and outside-click dismissal.
    */
-  function updateIconPreview() {
-    const id = dom.icon.value.trim();
-    if (id && CODICON_ID.test(id)) {
-      dom.iconPreview.className = 'codicon-preview codicon codicon-' + id;
-    } else {
-      dom.iconPreview.className = 'codicon-preview is-empty';
+  function initIconPicker() {
+    iconNames = loadIconNames();
+
+    dom.iconTrigger.addEventListener('click', () => {
+      if (isIconOpen()) {
+        closeIconPopover();
+      } else {
+        openIconPopover();
+      }
+    });
+
+    dom.iconClear.addEventListener('click', () => selectIcon(''));
+
+    dom.iconSearch.addEventListener('input', () => renderIconGrid(dom.iconSearch.value));
+    dom.iconSearch.addEventListener('keydown', onIconSearchKeydown);
+
+    // Choose a glyph by click (delegated; cells are rebuilt on every filter).
+    dom.iconGrid.addEventListener('click', (e) => {
+      const cell = /** @type {HTMLElement|null} */ (
+        /** @type {HTMLElement} */ (e.target).closest('[data-icon]')
+      );
+      if (cell) {
+        selectIcon(cell.getAttribute('data-icon') || '');
+      }
+    });
+
+    // Dismiss when a click lands outside the whole picker.
+    document.addEventListener('mousedown', (e) => {
+      if (isIconOpen() && !dom.iconPicker.contains(/** @type {Node} */ (e.target))) {
+        closeIconPopover();
+      }
+    });
+
+    // Dismiss when keyboard focus (Tab) leaves the picker, mirroring the
+    // outside-click dismissal so a Tab-out never strands an open popover with
+    // no focus inside it. `relatedTarget` is the element gaining focus.
+    dom.iconPicker.addEventListener('focusout', (e) => {
+      const next = /** @type {Node|null} */ (e.relatedTarget);
+      if (isIconOpen() && (!next || !dom.iconPicker.contains(next))) {
+        closeIconPopover();
+      }
+    });
+
+    refreshIconTrigger();
+  }
+
+  /** Parses the embedded codicon id list; tolerates a missing/garbled block. */
+  function loadIconNames() {
+    const el = document.getElementById('codicon-names');
+    if (!el || !el.textContent) {
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(el.textContent);
+      return Array.isArray(parsed)
+        ? parsed.filter((n) => typeof n === 'string' && CODICON_ID.test(n))
+        : [];
+    } catch (_e) {
+      return [];
     }
   }
+
+  /** @returns {boolean} Whether the popover is currently open. */
+  function isIconOpen() {
+    return !dom.iconPopover.hidden;
+  }
+
+  /** Opens the popover, resets the search, and renders the full grid. */
+  function openIconPopover() {
+    dom.iconPopover.hidden = false;
+    dom.iconTrigger.setAttribute('aria-expanded', 'true');
+    dom.iconSearch.value = '';
+    renderIconGrid('');
+    dom.iconSearch.focus();
+  }
+
+  /** Closes the popover and clears the keyboard highlight (focus untouched). */
+  function closeIconPopover() {
+    dom.iconPopover.hidden = true;
+    dom.iconTrigger.setAttribute('aria-expanded', 'false');
+    dom.iconSearch.removeAttribute('aria-activedescendant');
+    iconActive = -1;
+  }
+
+  /**
+   * Rebuilds the grid filtered by `query` (case-insensitive substring). Cells are
+   * glyph-only `option`s; only class names / text are ever assigned (never
+   * innerHTML) so a codicon id can't inject markup. Activates the selected icon
+   * if visible, else the first cell.
+   * @param {string} query
+   */
+  function renderIconGrid(query) {
+    const q = query.trim().toLowerCase();
+    const matches = q ? iconNames.filter((n) => n.indexOf(q) !== -1) : iconNames;
+    const current = dom.icon.value.trim();
+
+    const frag = document.createDocumentFragment();
+    iconCells = matches.map((name, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'icon-cell';
+      cell.id = 'icon-opt-' + i;
+      cell.setAttribute('role', 'option');
+      cell.setAttribute('data-icon', name);
+      cell.title = name;
+      cell.setAttribute('aria-label', name);
+      if (name === current) {
+        cell.setAttribute('aria-selected', 'true');
+        cell.classList.add('is-selected');
+      }
+      const glyph = document.createElement('span');
+      glyph.className = 'codicon codicon-' + name;
+      glyph.setAttribute('aria-hidden', 'true');
+      cell.appendChild(glyph);
+      frag.appendChild(cell);
+      return cell;
+    });
+
+    dom.iconGrid.textContent = '';
+    dom.iconGrid.appendChild(frag);
+
+    let active = iconCells.findIndex((c) => c.classList.contains('is-selected'));
+    if (active < 0 && iconCells.length > 0) {
+      active = 0;
+    }
+    setIconActive(active);
+    updateIconStatus(matches.length, q);
+  }
+
+  /**
+   * Announces the result count, or - when nothing matches but the query is a
+   * valid id - that Enter will use it verbatim (forward-compat for new codicons).
+   * @param {number} count
+   * @param {string} q
+   */
+  function updateIconStatus(count, q) {
+    if (count === 0) {
+      dom.iconStatus.textContent =
+        q && CODICON_ID.test(q)
+          ? 'No matches. Press Enter to use “' + q + '”.'
+          : 'No matching icons.';
+      return;
+    }
+    dom.iconStatus.textContent = count === 1 ? '1 icon' : count + ' icons';
+  }
+
+  /**
+   * Marks cell `index` active, syncing `aria-activedescendant` and scrolling it
+   * into view. An out-of-range index clears the highlight.
+   * @param {number} index
+   */
+  function setIconActive(index) {
+    if (iconActive >= 0 && iconCells[iconActive]) {
+      iconCells[iconActive].classList.remove('is-active');
+    }
+    iconActive = index >= 0 && index < iconCells.length ? index : -1;
+    if (iconActive < 0) {
+      dom.iconSearch.removeAttribute('aria-activedescendant');
+      return;
+    }
+    const cell = iconCells[iconActive];
+    cell.classList.add('is-active');
+    dom.iconSearch.setAttribute('aria-activedescendant', cell.id);
+    if (typeof cell.scrollIntoView === 'function') {
+      cell.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  /**
+   * Keyboard model for the search box (the combobox): arrows move the active
+   * cell (Left/Right by one, Up/Down by a row), Home/End jump to the ends, Enter
+   * commits, Escape closes and restores focus to the trigger.
+   * @param {KeyboardEvent} e
+   */
+  function onIconSearchKeydown(e) {
+    switch (e.key) {
+      case 'ArrowRight':
+        e.preventDefault();
+        moveIconActive(1);
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        moveIconActive(-1);
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        moveIconActive(iconColumns());
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        moveIconActive(-iconColumns());
+        break;
+      case 'Home':
+        if (iconCells.length > 0) {
+          e.preventDefault();
+          setIconActive(0);
+        }
+        break;
+      case 'End':
+        if (iconCells.length > 0) {
+          e.preventDefault();
+          setIconActive(iconCells.length - 1);
+        }
+        break;
+      case 'Enter':
+        e.preventDefault();
+        commitIconFromKeyboard();
+        break;
+      case 'Escape':
+        e.preventDefault();
+        closeIconPopover();
+        dom.iconTrigger.focus();
+        break;
+      default:
+        break;
+    }
+  }
+
+  /**
+   * Shifts the active cell by `delta`, clamping within the grid (never wraps).
+   * From no selection, any move lands on the first cell.
+   * @param {number} delta
+   */
+  function moveIconActive(delta) {
+    if (iconCells.length === 0) {
+      return;
+    }
+    const base = iconActive < 0 ? 0 : iconActive + delta;
+    setIconActive(Math.max(0, Math.min(iconCells.length - 1, base)));
+  }
+
+  /** Commits the active cell, or a typed-but-unlisted valid id (forward-compat). */
+  function commitIconFromKeyboard() {
+    if (iconActive >= 0 && iconCells[iconActive]) {
+      selectIcon(iconCells[iconActive].getAttribute('data-icon') || '');
+      return;
+    }
+    const raw = dom.iconSearch.value.trim();
+    if (raw && CODICON_ID.test(raw)) {
+      selectIcon(raw);
+    }
+  }
+
+  /** @returns {number} The grid's current column count (>= 1). */
+  function iconColumns() {
+    const cols = getComputedStyle(dom.iconGrid).gridTemplateColumns;
+    const n = cols ? cols.split(' ').filter((s) => s.length > 0).length : 0;
+    return n > 0 ? n : 1;
+  }
+
+  /**
+   * Commits a chosen icon: stores the raw value (empty = default), refreshes the
+   * trigger, closes the popover, and returns focus to the trigger.
+   * @param {string} value
+   */
+  function selectIcon(value) {
+    dom.icon.value = value;
+    refreshIconTrigger();
+    closeIconPopover();
+    dom.iconTrigger.focus();
+  }
+
+  /**
+   * Reflects the current hidden value on the trigger: the chosen glyph + name,
+   * or the default `checklist` glyph + label when unset. Only class names / text
+   * are assigned (never innerHTML), so values stay inert.
+   */
+  function refreshIconTrigger() {
+    const id = dom.icon.value.trim();
+    if (id && CODICON_ID.test(id)) {
+      dom.iconTriggerGlyph.className = 'icon-glyph codicon codicon-' + id;
+      dom.iconTriggerLabel.textContent = id;
+      dom.iconTriggerLabel.classList.remove('is-default');
+    } else {
+      // Empty/invalid: preview the default the tree will actually render.
+      dom.iconTriggerGlyph.className = 'icon-glyph codicon codicon-' + DEFAULT_ICON;
+      dom.iconTriggerLabel.textContent = 'Default (' + DEFAULT_ICON + ')';
+      dom.iconTriggerLabel.classList.add('is-default');
+    }
+  }
+
+  // --- Misc ----------------------------------------------------------------
 
   /** @param {boolean} busy */
   function setBusy(busy) {

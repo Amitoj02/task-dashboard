@@ -8,3 +8,4 @@ out
 # Codicon assets are vendored into media/ by esbuild.js from @vscode/codicons.
 media/codicon.css
 media/codicon.ttf
+media/codicon-names.json

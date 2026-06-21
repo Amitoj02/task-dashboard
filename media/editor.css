@@ -219,7 +219,7 @@ input:disabled {
   line-height: 1;
 }
 
-.codicon-preview {
+.icon-glyph {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -232,17 +232,155 @@ input:disabled {
 }
 
 /* Render the codicon glyph at a comfortable size inside the preview box. */
-.codicon-preview.codicon::before {
+.icon-glyph.codicon::before {
   font-size: 18px;
 }
 
 /* No glyph yet: show a subtle placeholder so the box still reads as a preview. */
-.codicon-preview.is-empty::before {
+.icon-glyph.is-empty::before {
   content: '?';
   color: var(--vscode-descriptionForeground);
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 0.85em;
   opacity: 0.6;
+}
+
+/* ---- Icon picker -------------------------------------------------------- */
+
+.icon-picker {
+  position: relative;
+}
+
+/* Combobox-style trigger: current glyph + name + caret, styled like an input. */
+.icon-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 8px;
+  text-align: left;
+  color: var(--vscode-input-foreground);
+  background-color: var(--vscode-input-background);
+  border: 1px solid var(--te-border);
+}
+
+.icon-trigger:hover {
+  border-color: var(--vscode-focusBorder);
+}
+
+.icon-trigger .icon-glyph {
+  width: 24px;
+  height: 24px;
+}
+
+.icon-trigger-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.icon-trigger-label.is-default {
+  color: var(--vscode-descriptionForeground);
+}
+
+.icon-trigger-caret {
+  flex: 0 0 auto;
+  color: var(--vscode-descriptionForeground);
+}
+
+.icon-trigger-caret::before {
+  font-size: 14px;
+}
+
+/* Popover anchored under the trigger; the grid scrolls, the search stays put. */
+.icon-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background-color: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-editorWidget-border, var(--te-border));
+  border-radius: var(--te-radius);
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
+}
+
+.icon-popover[hidden] {
+  display: none;
+}
+
+.icon-popover-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.icon-search {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Compact button that centers in the search row (no block-button spacing). */
+.icon-clear {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  font-size: 0.88em;
+}
+
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+  gap: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.icon-grid:focus {
+  outline: none;
+}
+
+.icon-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: var(--te-radius);
+  color: var(--vscode-foreground);
+  cursor: pointer;
+}
+
+.icon-cell .codicon::before {
+  font-size: 18px;
+}
+
+.icon-cell:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+/* The currently-saved icon (persists across the grid). */
+.icon-cell.is-selected {
+  border-color: var(--vscode-focusBorder);
+}
+
+/* The keyboard-highlighted cell (moves with the arrow keys). */
+.icon-cell.is-active {
+  background-color: var(--vscode-list-activeSelectionBackground, var(--vscode-list-hoverBackground));
+  color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
+}
+
+.icon-status {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground);
 }
 
 /* ---- Buttons ------------------------------------------------------------ */

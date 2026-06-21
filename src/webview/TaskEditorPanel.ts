@@ -22,6 +22,7 @@
 
 import * as vscode from 'vscode';
 import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
 import type { ITaskStore, IPathValidator } from '../types/contracts';
 import type { TaskDefinitionId } from '../types/ids';
@@ -493,6 +494,12 @@ export class TaskEditorPanel {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'editor.js')).toString();
     const cspSource = webview.cspSource;
 
+    // The codicon id list for the icon picker, embedded as a non-executing JSON
+    // data block (parsed by editor.js). Inlining it keeps the strict CSP intact -
+    // no extra fetch/connect-src and no remote resource - and the values are
+    // re-validated to `[a-z0-9-]` so the block can never break out of </script>.
+    const iconNamesJson = TaskEditorPanel.readCodiconNames(mediaRoot);
+
     const csp = [
       `default-src 'none'`,
       `img-src ${cspSource} https:`,
@@ -569,13 +576,31 @@ export class TaskEditorPanel {
         </div>
 
         <div class="field">
-          <label for="icon">Icon</label>
-          <div class="row">
-            <span id="icon-preview" class="codicon-preview" aria-hidden="true"></span>
-            <input id="icon" name="icon" type="text" autocomplete="off" spellcheck="false"
-              placeholder="e.g. rocket" aria-describedby="icon-help" />
+          <label id="icon-label" for="icon-trigger">Icon</label>
+          <div class="icon-picker" id="icon-picker">
+            <button type="button" id="icon-trigger" class="icon-trigger" aria-haspopup="dialog"
+              aria-expanded="false" aria-labelledby="icon-label icon-trigger-label"
+              aria-describedby="icon-help">
+              <span id="icon-trigger-glyph" class="icon-glyph is-empty" aria-hidden="true"></span>
+              <span id="icon-trigger-label" class="icon-trigger-label"></span>
+              <span class="codicon codicon-chevron-down icon-trigger-caret" aria-hidden="true"></span>
+            </button>
+            <div id="icon-popover" class="icon-popover" role="dialog" aria-label="Choose an icon" hidden>
+              <div class="icon-popover-head">
+                <input id="icon-search" class="icon-search" type="text" role="combobox"
+                  autocomplete="off" spellcheck="false" placeholder="Search icons…"
+                  aria-label="Search icons" aria-controls="icon-grid" aria-expanded="true"
+                  aria-autocomplete="list" />
+                <button type="button" id="icon-clear" class="secondary icon-clear">None</button>
+              </div>
+              <div id="icon-grid" class="icon-grid" role="listbox" aria-label="Icons" tabindex="-1"></div>
+              <p id="icon-status" class="icon-status" aria-live="polite"></p>
+            </div>
+            <input id="icon" name="icon" type="hidden" />
           </div>
-          <p id="icon-help" class="hint">Optional codicon id (without the <code>$()</code> wrapper).</p>
+          <p id="icon-help" class="hint">
+            Pick a codicon. Leave as <strong>None</strong> to use the default <code>checklist</code>.
+          </p>
         </div>
 
         <div class="checks">
@@ -604,9 +629,31 @@ export class TaskEditorPanel {
         </div>
       </form>
     </main>
+    <script type="application/json" id="codicon-names" nonce="${nonce}">${iconNamesJson}</script>
     <script nonce="${nonce}" src="${scriptUri}"></script>
   </body>
 </html>`;
+  }
+
+  /**
+   * Reads the build-generated `media/codicon-names.json` and returns it as a
+   * compact JSON string safe to inline in HTML. Every entry is re-validated to a
+   * codicon id (`[a-z0-9-]`), so the result can never contain `<`, `>`, `&`, or a
+   * `</script>` sequence. Returns `"[]"` if the file is missing or malformed -
+   * the picker then degrades to accepting a typed id rather than crashing.
+   */
+  private static readCodiconNames(mediaRoot: vscode.Uri): string {
+    try {
+      const raw = readFileSync(vscode.Uri.joinPath(mediaRoot, 'codicon-names.json').fsPath, 'utf8');
+      const parsed: unknown = JSON.parse(raw);
+      const isId = /^[a-z0-9-]+$/;
+      const names = Array.isArray(parsed)
+        ? parsed.filter((n): n is string => typeof n === 'string' && isId.test(n))
+        : [];
+      return JSON.stringify(names);
+    } catch {
+      return '[]';
+    }
   }
 
   /** Generates a cryptographically-random nonce for the CSP. */
