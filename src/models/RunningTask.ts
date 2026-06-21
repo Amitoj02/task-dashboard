@@ -93,6 +93,41 @@ export function isLive(task: Pick<RunningTask, 'state'>): boolean {
 }
 
 /**
+ * A plain, host-free summary of the running-task count, shaped to map directly
+ * onto a `vscode.ViewBadge` (`{ value, tooltip }`) at the host boundary.
+ *
+ * Kept free of any `vscode` import so the badge logic can be unit-tested.
+ */
+export interface RunningBadge {
+  /** The number of currently-active (live) instances. */
+  value: number;
+
+  /** Human-readable hover text describing the count. */
+  tooltip: string;
+}
+
+/**
+ * Builds the activity-bar badge for the running-task count, or `undefined` when
+ * nothing is live.
+ *
+ * Only {@link isLive} instances are counted (Starting/Running/Stopping/
+ * Restarting), so a task still winding down in its SIGTERM grace window is
+ * included while exited/failed instances are not. Returns `undefined` for a zero
+ * count because a `ViewBadge` with `value: 0` would render a literal "0" circle
+ * rather than clearing the badge.
+ *
+ * @param instances - All known instances (live and ended).
+ * @returns The badge summary, or `undefined` when no instance is live.
+ */
+export function runningCountBadge(instances: readonly RunningTask[]): RunningBadge | undefined {
+  const value = instances.reduce((n, task) => (isLive(task) ? n + 1 : n), 0);
+  if (value === 0) {
+    return undefined;
+  }
+  return { value, tooltip: `${value} task${value === 1 ? '' : 's'} running` };
+}
+
+/**
  * Computes how long an instance has been (or was) running, in milliseconds.
  *
  * For a live instance this is `now - startedAt`; for an ended instance it is

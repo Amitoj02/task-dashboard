@@ -148,6 +148,9 @@
       allowMultipleInstances: dom.allowMultipleInstances.checked,
       autoRestart: dom.autoRestart.checked,
       environmentVariables: collectEnv(),
+      // The chosen scope (e.g. "global"). The host treats it as untrusted and
+      // re-coerces it, and ignores it entirely in edit mode (scope is locked).
+      scope: dom.scope.value,
     };
   }
 

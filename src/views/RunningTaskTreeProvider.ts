@@ -2,11 +2,18 @@
  * Tree data provider for the **Running Tasks** view.
  *
  * Renders the live (and recently-ended) instances owned by an
- * {@link ITaskManager}, newest first, with a status icon, PID, and a live
- * duration that ticks roughly once per second. Structural changes
- * (start/update/exit) trigger a debounced refresh; the per-second tick triggers
- * a plain refresh and lets VS Code's virtualization recompute durations only for
- * visible rows in {@link getTreeItem}.
+ * {@link ITaskManager}, newest first, with a status icon and PID; the elapsed
+ * duration is shown in the row only once an instance has *ended* (frozen) and,
+ * for live instances, in the lazily-resolved hover tooltip.
+ *
+ * Refreshes are driven purely by structural change events (start/update/exit/
+ * remove), debounced into a single update. The view deliberately does **not**
+ * re-render rows on the manager's per-second tick: a timed refresh of a live row
+ * tears down its open hover and its inline action buttons mid-interaction (see
+ * microsoft/vscode#153982), which is why a hover used to vanish and the Stop
+ * button needed several clicks while a task was running. Trading the live
+ * ticking duration in the row for a stable hover and reliable single-click
+ * actions is the intended behavior.
  *
  * @remarks Host-aware view layer. May import `vscode`. Reads running state
  * through the {@link ITaskManager} seam and time through the {@link IClock} seam;
@@ -18,6 +25,7 @@ import * as vscode from 'vscode';
 import type { IClock, ITaskManager } from '../types/contracts';
 import { RunningTaskState, durationMs, type RunningTask } from '../models/RunningTask';
 import { COMMAND_IDS } from '../util/commandIds';
+import { formatDuration } from '../util/duration';
 import { debounce, type Debounced } from '../util/debounce';
 import type { IDisposable } from '../util/event';
 import { RunningNode } from './nodes';
@@ -81,15 +89,15 @@ export class RunningTaskTreeProvider
   ) {
     this.debouncedRefresh = debounce(() => this.changeEmitter.fire(undefined), REFRESH_DEBOUNCE_MS);
 
-    // Structural changes: coalesce into one debounced refresh.
+    // Structural changes: coalesce into one debounced refresh. The manager's
+    // per-second tick is intentionally NOT subscribed here — see the class doc:
+    // a timed refresh of a live row dismisses its hover and drops inline-action
+    // clicks. Rows therefore update only when their state actually changes.
     this.subscriptions.push(
       this.manager.onDidStartInstance(() => this.debouncedRefresh()),
       this.manager.onDidUpdateInstance(() => this.debouncedRefresh()),
       this.manager.onDidExitInstance(() => this.debouncedRefresh()),
-      this.manager.onDidRemoveInstance(() => this.debouncedRefresh()),
-      // Per-second tick: refresh so durations recompute in getTreeItem
-      // (VS Code virtualizes — only visible rows are rebuilt).
-      this.manager.onDidTick(() => this.changeEmitter.fire(undefined))
+      this.manager.onDidRemoveInstance(() => this.debouncedRefresh())
     );
   }
 
@@ -150,7 +158,9 @@ export class RunningTaskTreeProvider
     const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
     item.id = task.instanceId;
     item.description = this.describe(task);
-    item.tooltip = this.tooltip(task);
+    // Tooltip is resolved lazily in resolveTreeItem (on hover): building it here
+    // on every structural refresh is wasted work, and a lazy tooltip keeps the
+    // hover stable.
     item.iconPath = this.icon(task.state);
     item.contextValue = node.contextValue;
 
@@ -161,6 +171,27 @@ export class RunningTaskTreeProvider
       arguments: [node],
     };
 
+    return item;
+  }
+
+  /**
+   * Lazily fills in the rich hover tooltip when a row is hovered.
+   *
+   * VS Code calls this only on hover (and once per {@link vscode.TreeItem}), so
+   * the live duration is computed at hover time rather than on a timer — giving
+   * an accurate, stable hover without the per-second refresh that would dismiss
+   * it.
+   *
+   * @param item - The tree item produced by {@link getTreeItem}.
+   * @param node - The running node being hovered.
+   * @returns The same item with its `tooltip` populated.
+   *
+   * @remarks VS Code also passes a `CancellationToken` as a third argument at
+   * runtime; it is omitted from the signature because the tooltip is built
+   * synchronously. This still satisfies the optional `resolveTreeItem` contract.
+   */
+  public resolveTreeItem(item: vscode.TreeItem, node: RunningNode): vscode.TreeItem {
+    item.tooltip = this.tooltip(node.task);
     return item;
   }
 
@@ -184,13 +215,23 @@ export class RunningTaskTreeProvider
     return new vscode.ThemeIcon(icon, color ? new vscode.ThemeColor(color) : undefined);
   }
 
-  /** Builds the inline description: status + PID + live/final duration. */
+  /**
+   * Builds the inline description: status + PID, plus the final (frozen)
+   * duration once an instance has ended.
+   *
+   * A live instance deliberately shows no duration in the row: a ticking value
+   * would require a per-second refresh, which dismisses hovers and drops
+   * inline-action clicks. The live elapsed time is available in the hover tooltip
+   * ({@link resolveTreeItem}) instead.
+   */
   private describe(task: RunningTask): string {
     const parts: string[] = [STATE_LABEL[task.state]];
     if (task.pid !== undefined) {
       parts.push(`PID ${task.pid}`);
     }
-    parts.push(formatDuration(durationMs(task, this.clock.now())));
+    if (task.endedAt !== undefined) {
+      parts.push(formatDuration(durationMs(task, this.clock.now())));
+    }
     return parts.join(' · ');
   }
 
@@ -227,27 +268,9 @@ export class RunningTaskTreeProvider
   }
 }
 
-/**
- * Formats a millisecond duration as `mm:ss`, or `h:mm:ss` once it reaches an
- * hour.
- *
- * @param ms - The duration in milliseconds.
- * @returns A compact, zero-padded clock-style string.
- */
-export function formatDuration(ms: number): string {
-  const totalSeconds = Math.floor(Math.max(0, ms) / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  const ss = String(seconds).padStart(2, '0');
-  if (hours > 0) {
-    const mm = String(minutes).padStart(2, '0');
-    return `${hours}:${mm}:${ss}`;
-  }
-  const mm = String(minutes).padStart(2, '0');
-  return `${mm}:${ss}`;
-}
+// Re-exported from the host-free util so existing importers (and tests) can keep
+// referencing it from here; the implementation lives in `../util/duration`.
+export { formatDuration } from '../util/duration';
 
 /** Escapes the markdown control characters that matter inside tooltip text. */
 function escapeMarkdown(text: string): string {
