@@ -56,6 +56,24 @@ describe('splitArgv (parseCommand)', () => {
     assert.deepEqual(splitArgv("path\\'name"), ["path'name"]);
   });
 
+  it('keeps unquoted backslashes literal when preserveBackslashes is set (Windows paths)', () => {
+    const win = { preserveBackslashes: true };
+    // Native Windows program + argument paths survive intact, separators kept.
+    assert.deepEqual(splitArgv('C:\\tools\\my-app.exe --flag', win), [
+      'C:\\tools\\my-app.exe',
+      '--flag',
+    ]);
+    assert.deepEqual(splitArgv('node C:\\proj\\server.js', win), [
+      'node',
+      'C:\\proj\\server.js',
+    ]);
+    assert.deepEqual(splitArgv('.\\scripts\\build.bat', win), ['.\\scripts\\build.bat']);
+    // Quoting still groups a spaced path, and the backslashes are preserved.
+    assert.deepEqual(splitArgv('"C:\\Program Files\\app\\run.exe"', win), [
+      'C:\\Program Files\\app\\run.exe',
+    ]);
+  });
+
   it('joins adjacent quoted and unquoted segments into one token', () => {
     assert.deepEqual(splitArgv('a"b"c'), ['abc']);
     assert.deepEqual(splitArgv(`pre'mid'post`), ['premidpost']);

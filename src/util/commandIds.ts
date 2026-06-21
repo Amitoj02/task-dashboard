@@ -40,8 +40,6 @@ export const COMMAND_IDS = {
   stopAll: 'taskDashboard.stopAll',
   /** Reveal the terminal for a running instance. */
   showOutput: 'taskDashboard.showOutput',
-  /** Clear the terminal for a running instance. */
-  clearOutput: 'taskDashboard.clearOutput',
   /** Remove a single ended instance (and its terminal) from the running list. */
   removeInstance: 'taskDashboard.removeInstance',
   /** Remove every ended instance (and their terminals) from the running list. */
@@ -73,18 +71,3 @@ export const VIEW_IDS = {
 
 /** Union of all contributed view ids. */
 export type ViewId = (typeof VIEW_IDS)[keyof typeof VIEW_IDS];
-
-/**
- * `when`-clause context keys the extension sets at runtime.
- *
- * These let title-bar/menu items reflect transient UI state (the active sort
- * order and scope filter) without persisting it in the manifest.
- */
-export const CONTEXT_KEYS = {
-  /** Current definitions sort order (`name-asc` | `name-desc` | `recent` | `manual`). */
-  sortOrder: 'taskDashboard.sortOrder',
-  /** Current definitions scope filter (`all` | `global` | `workspace`). */
-  scopeFilter: 'taskDashboard.scopeFilter',
-  /** Whether a definitions search filter is active. */
-  searchActive: 'taskDashboard.searchActive',
-} as const;

@@ -6,15 +6,18 @@
  * - attaches an `error` listener **before anything else** (an unhandled child
  *   `error` event throws and would crash the host);
  * - spawns POSIX children `detached` so the whole process *group* can be killed
- *   with a negative pid, and force-kills the *tree* on Windows via `taskkill`;
- * - wraps every `process.kill`/`taskkill` in try/catch so an `ESRCH`/`EPERM`
- *   race (the child already exited) can never throw.
+ *   with a negative pid, and kills the *tree* on Windows via `taskkill /T`
+ *   (graceful for SIGTERM, `/F` only for the SIGKILL escalation);
+ * - runs `taskkill` through the async, non-blocking `spawn` so a stop never
+ *   stalls the extension-host event loop;
+ * - wraps every `process.kill`/`taskkill` in try/catch (or an `error` listener)
+ *   so an `ESRCH`/`EPERM` race (the child already exited) can never throw.
  *
  * @remarks Host-aware adapter. Allowed to import `child_process`. Wired up only
  * in `extension.ts`.
  */
 
-import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 
 import { Emitter, type IDisposable } from '../util/event';
 import type { IProcessSpawner, ISpawnedProcess, SpawnOptions } from '../types/contracts';
@@ -105,7 +108,7 @@ class NodeSpawnedProcess implements ISpawnedProcess {
     }
 
     if (IS_WINDOWS) {
-      this.killWindows(pid);
+      this.killWindows(pid, signal);
       return;
     }
     this.killPosix(pid, signal);
@@ -133,18 +136,34 @@ class NodeSpawnedProcess implements ISpawnedProcess {
   }
 
   /**
-   * Windows kill: `taskkill /PID <pid> /T /F` force-terminates the whole tree —
-   * the only reliable way to avoid orphaned grandchildren. The child's own
-   * `exit` event still drives lifecycle; this just sends the kill.
+   * Windows kill via `taskkill /T` over the whole process tree (the only reliable
+   * way to avoid orphaned grandchildren). SIGTERM requests a graceful tree
+   * termination; SIGKILL adds `/F` to force it, so the runner's SIGTERM, grace,
+   * then SIGKILL escalation has real meaning on Windows instead of always force-killing.
+   *
+   * Runs through the async `spawn` (never the blocking `spawnSync`) so a stop
+   * cannot stall the host event loop. The child's own `exit` event still drives
+   * lifecycle; this only sends the kill. A `taskkill` that is missing or races the
+   * child's exit falls back to terminating just the child.
    */
-  private killWindows(pid: number): void {
+  private killWindows(pid: number, signal: NodeJS.Signals): void {
+    const args = ['/PID', String(pid), '/T'];
+    if (signal === 'SIGKILL') {
+      args.push('/F');
+    }
     try {
-      spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
-        windowsHide: true,
-        timeout: 5000,
+      const killer = spawn('taskkill', args, { windowsHide: true, stdio: 'ignore' });
+      // An async failure (taskkill missing, or the child already gone) must never
+      // surface as an unhandled 'error' that crashes the host.
+      killer.on('error', () => {
+        try {
+          this.child.kill();
+        } catch {
+          /* already gone */
+        }
       });
     } catch {
-      /* taskkill missing/raced — best-effort fall back to the child kill */
+      /* spawn itself threw - best-effort fall back to the child kill */
       try {
         this.child.kill();
       } catch {

@@ -54,13 +54,4 @@ export interface CommandDeps {
 
   /** Opens the Task Editor webview in add or edit mode. */
   openEditor(mode: 'add' | 'edit', definitionId?: string): void;
-
-  /**
-   * Sets a `when`-clause context key (e.g. the active sort order / scope filter),
-   * so title-bar icons can reflect current UI state.
-   *
-   * @param key - The context-key name.
-   * @param value - The value to assign.
-   */
-  setContext(key: string, value: unknown): void;
 }

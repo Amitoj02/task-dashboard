@@ -95,9 +95,9 @@ export interface ITimerHandle {
 /**
  * A source of scheduled callbacks (one-shot and repeating).
  *
- * Injected so the core's grace-timeouts, startup delays, and the single shared
- * refresh tick can be driven by a fake clock in tests rather than real wall-clock
- * timers. The concrete adapter wraps Node's `setTimeout`/`setInterval`.
+ * Injected so the core's grace-timeouts, auto-restart delays, and the single
+ * shared refresh tick can be driven by a fake clock in tests rather than real
+ * wall-clock timers. The concrete adapter wraps Node's `setTimeout`/`setInterval`.
  */
 export interface ITimers {
   /**

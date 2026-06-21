@@ -22,7 +22,7 @@ import type { RunningInstanceId, TaskDefinitionId } from '../types/ids';
  * `Restarting` is a transient state used by the auto-restart flow.
  */
 export enum RunningTaskState {
-  /** Spawn requested; awaiting the OS process (and any `startupDelayMs`). */
+  /** Spawn requested; awaiting the OS process. */
   Starting = 'starting',
   /** Process is alive and producing output. */
   Running = 'running',

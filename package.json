@@ -2,7 +2,7 @@
   "name": "task-dashboard",
   "displayName": "Task Dashboard",
   "description": "Define, run, and manage custom shell tasks from a dedicated sidebar.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "Amitoj02",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -32,13 +32,12 @@
     "process",
     "dashboard",
     "shell",
-    "command"
+    "command",
+    "run configuration",
+    "intellij"
   ],
   "main": "./dist/extension.js",
-  "activationEvents": [
-    "onView:taskDashboard.definitions",
-    "onView:taskDashboard.running"
-  ],
+  "activationEvents": [],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -133,12 +132,6 @@
         "title": "Show Output",
         "category": "Task Dashboard",
         "icon": "$(output)"
-      },
-      {
-        "command": "taskDashboard.clearOutput",
-        "title": "Clear Output",
-        "category": "Task Dashboard",
-        "icon": "$(clear-all)"
       },
       {
         "command": "taskDashboard.removeInstance",
@@ -342,10 +335,6 @@
           "when": "false"
         },
         {
-          "command": "taskDashboard.clearOutput",
-          "when": "false"
-        },
-        {
           "command": "taskDashboard.removeInstance",
           "when": "false"
         }
@@ -414,7 +403,7 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "pnpm run build",
+    "vscode:prepublish": "pnpm run typecheck && pnpm run lint && pnpm run build",
     "build": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
     "compile-tests": "tsc -p ./ --outDir out",
@@ -428,21 +417,20 @@
     "package": "vsce package --no-dependencies"
   },
   "devDependencies": {
-    "@eslint/js": "^9.18.0",
+    "@eslint/js": "^10.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.10.0",
     "@types/vscode": "^1.122.0",
     "@vscode/codicons": "^0.0.45",
-    "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^3.0.0",
     "@vscode/vsce": "^3.6.2",
-    "esbuild": "^0.25.0",
-    "eslint": "^9.18.0",
-    "glob": "^11.0.0",
+    "esbuild": "^0.28.0",
+    "eslint": "^10.0.0",
     "mocha": "^11.1.0",
     "prettier": "^3.4.2",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3",
+    "typescript": "^5.9.0",
     "typescript-eslint": "^8.21.0"
   }
 }

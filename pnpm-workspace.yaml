@@ -3,3 +3,10 @@ allowBuilds:
   esbuild: true
   keytar: false
 verifyDepsBeforeRun: false
+# Force patched versions of dev-only transitive dependencies flagged by `pnpm audit`.
+# Both arrive via mocha / @vscode/test-cli; the latest mocha still declares the
+# vulnerable ranges, so a mocha bump alone does not clear them. Neither ships in
+# the VSIX (the extension has zero runtime dependencies).
+overrides:
+  serialize-javascript@<7.0.5: '>=7.0.5'
+  diff@<8.0.3: '>=8.0.3'

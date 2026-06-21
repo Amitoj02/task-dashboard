@@ -39,9 +39,9 @@ import { registerCommands } from './commands/index';
 import type { CommandDeps } from './commands/CommandDeps';
 
 import { CONFIG, CONFIG_DEFAULTS, type TaskDashboardConfig } from './util/config';
-import { CONTEXT_KEYS, VIEW_IDS } from './util/commandIds';
+import { VIEW_IDS } from './util/commandIds';
 import type { TaskDefinition } from './models/TaskDefinition';
-import { runningCountBadge } from './models/RunningTask';
+import { runningCountBadge, RunningTaskState } from './models/RunningTask';
 import type { TaskDefinitionId } from './types/ids';
 import { RunningNode } from './views/nodes';
 
@@ -151,13 +151,6 @@ export function activate(context: vscode.ExtensionContext): ExtensionTestApi {
     }
   });
 
-  // Keep the sort-order context key in step with the provider. The provider owns
-  // the source of truth (it also changes sort on a drag-and-drop reorder), so the
-  // context key is driven from its change event rather than only the toggle command.
-  const sortContextSub = definitionsProvider.onDidChangeSort((sort) => {
-    void vscode.commands.executeCommand('setContext', CONTEXT_KEYS.sortOrder, sort);
-  });
-
   // -- Activity-bar running-count badge --------------------------------------
   // Surface the number of currently-running tasks as a numeric badge on the
   // Task Dashboard activity-bar icon. The badge lives on the "running" view;
@@ -174,18 +167,37 @@ export function activate(context: vscode.ExtensionContext): ExtensionTestApi {
     manager.onDidRemoveInstance(updateRunningBadge)
   );
 
-  // -- Initial context keys ---------------------------------------------------
-  void vscode.commands.executeCommand(
-    'setContext',
-    CONTEXT_KEYS.sortOrder,
-    definitionsProvider.getSort()
-  );
-  void vscode.commands.executeCommand(
-    'setContext',
-    CONTEXT_KEYS.scopeFilter,
-    definitionsProvider.getScopeFilter()
-  );
-  void vscode.commands.executeCommand('setContext', CONTEXT_KEYS.searchActive, false);
+  // -- Task lifecycle notifications -------------------------------------------
+  // Honour the `notifications` setting on task exit: surface a toast when a task
+  // fails (the default `errorsOnly`, and `all`) and, only under `all`, when one
+  // finishes cleanly; `none` stays silent. Auto-restart failures are summarized
+  // by the crash-loop breaker (onCrashLoop above), so they are not toasted per
+  // crash here, avoiding a flood during a crash loop.
+  const lifecycleNotificationSub = manager.onDidExitInstance((exit) => {
+    if (config.notifications === 'none') {
+      return;
+    }
+    const instance = manager.getInstance(exit.instanceId);
+    if (!instance) {
+      return;
+    }
+    if (instance.state === RunningTaskState.Failed) {
+      const autoRestartActive =
+        (store.get(instance.definitionId)?.autoRestart ?? false) &&
+        config.maxRestartsPerMinute > 0;
+      if (autoRestartActive) {
+        return;
+      }
+      const detail = exit.signal
+        ? ` (signal ${exit.signal})`
+        : typeof exit.exitCode === 'number'
+          ? ` (exit code ${exit.exitCode})`
+          : '';
+      ui.error(`Task Dashboard: "${instance.name}" failed${detail}.`);
+    } else if (config.notifications === 'all' && instance.state === RunningTaskState.Exited) {
+      ui.info(`Task Dashboard: "${instance.name}" finished.`);
+    }
+  });
 
   // -- Command dependency bundle ---------------------------------------------
   const deps: CommandDeps = {
@@ -202,9 +214,6 @@ export function activate(context: vscode.ExtensionContext): ExtensionTestApi {
       const existing =
         mode === 'edit' && definitionId ? store.get(definitionId as TaskDefinitionId) : undefined;
       TaskEditorPanel.show(context, store, pathValidator, mode, existing);
-    },
-    setContext: (key, value) => {
-      void vscode.commands.executeCommand('setContext', key, value);
     },
   };
 
@@ -232,8 +241,8 @@ export function activate(context: vscode.ExtensionContext): ExtensionTestApi {
     definitionsView,
     runningView,
     runningSelectionSub,
-    sortContextSub,
     runningBadgeSub,
+    lifecycleNotificationSub,
     configSub,
     commandsDisposable,
     output,

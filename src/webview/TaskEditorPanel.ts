@@ -568,9 +568,10 @@ export class TaskEditorPanel {
           </div>
 
           <div class="field">
-            <label for="startupDelayMs">Startup delay (ms)</label>
+            <label for="startupDelayMs">Auto-restart delay (ms)</label>
             <input id="startupDelayMs" name="startupDelayMs" type="number" min="0" step="100"
-              inputmode="numeric" aria-describedby="startupDelayMs-error" />
+              inputmode="numeric" aria-describedby="startupDelayMs-help startupDelayMs-error" />
+            <p id="startupDelayMs-help" class="hint">Pause before each automatic restart. Applies only when "Auto-restart on crash" is on.</p>
             <p id="startupDelayMs-error" class="error" role="alert" aria-live="polite"></p>
           </div>
         </div>

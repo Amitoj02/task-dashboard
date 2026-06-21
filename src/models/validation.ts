@@ -42,8 +42,8 @@ export type FieldErrors = Partial<Record<TaskField, string>>;
 /**
  * The largest accepted {@link TaskDefinitionInput.startupDelayMs}.
  *
- * Caps the spawn delay at one hour so a hand-edited or fat-fingered value cannot
- * wedge a task in the "Starting" state effectively forever.
+ * Caps the auto-restart delay at one hour so a hand-edited or fat-fingered value
+ * cannot leave a crashed task waiting to restart for an unreasonable length of time.
  */
 export const MAX_STARTUP_DELAY_MS = 60 * 60 * 1000;
 
@@ -80,9 +80,10 @@ export function validateInput(input: TaskDefinitionInput): FieldErrors {
   const delay = input.startupDelayMs;
   if (delay !== undefined) {
     if (!Number.isFinite(delay) || !Number.isInteger(delay) || delay < 0) {
-      errors.startupDelayMs = 'Startup delay must be a whole number of milliseconds (0 or more).';
+      errors.startupDelayMs =
+        'Auto-restart delay must be a whole number of milliseconds (0 or more).';
     } else if (delay > MAX_STARTUP_DELAY_MS) {
-      errors.startupDelayMs = `Startup delay must be at most ${MAX_STARTUP_DELAY_MS} ms (1 hour).`;
+      errors.startupDelayMs = `Auto-restart delay must be at most ${MAX_STARTUP_DELAY_MS} ms (1 hour).`;
     }
   }
 

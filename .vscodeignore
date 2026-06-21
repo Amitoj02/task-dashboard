@@ -28,4 +28,11 @@ pnpm-lock.yaml
 pnpm-workspace.yaml
 .npmrc
 
-# Keep: dist/, media/, package.json, README.md, CHANGELOG.md, LICENSE
+# README screenshots ship via absolute raw-GitHub URLs (see README.md), so they
+# render on the Marketplace and in-editor without bloating the VSIX (~1.4 MB).
+media/screenshots/**
+# Editable icon source; only the rendered media/icon.png is needed at runtime.
+media/icon.svg
+
+# Keep: dist/, media/ (webview assets, icon.png, task-dashboard.svg), package.json,
+# README.md, CHANGELOG.md, LICENSE

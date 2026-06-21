@@ -370,7 +370,9 @@ export class TaskRunner implements IDisposable {
       };
     }
 
-    const argv = splitArgv(def.command);
+    // On Windows, keep backslashes literal so native paths (`C:\tools\app.exe`)
+    // survive the argv split; elsewhere POSIX backslash-escaping applies.
+    const argv = splitArgv(def.command, { preserveBackslashes: process.platform === 'win32' });
     const [program, ...args] = argv.length > 0 ? argv : [def.command];
     return {
       command: program,
