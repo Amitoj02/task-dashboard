@@ -20,10 +20,10 @@ import type { ExtensionTestApi } from '../../extension';
 
 /**
  * The published extension id, i.e. `<publisher>.<name>` from `package.json`
- * (`task-dashboard` + `task-dashboard`). Used to look the extension up in the
- * host's registry.
+ * (`Amitoj02` + `task-dashboard`). Used to look the extension up in the host's
+ * registry. Keep this in sync with the `publisher`/`name` fields.
  */
-export const EXTENSION_ID = 'task-dashboard.task-dashboard';
+export const EXTENSION_ID = 'Amitoj02.task-dashboard';
 
 /**
  * Activates the extension under test and returns its {@link ExtensionTestApi}.
