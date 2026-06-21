@@ -12,13 +12,14 @@
 
 </div>
 
-Stop juggling a dozen terminals and stop memorizing commands - keep
-`npm run start`, `pnpm dev`, `docker compose up -d`, and friends one click away, with live status,
-PID, and duration at a glance.
+Replace manual terminal management with a GUI - keep `npm run start`, `pnpm dev`,
+`docker compose up -d`, etc. one click away (with live status, PID). Think
+IntelliJ-style run configurations for VS Code: save your project's commands as
+named, reusable tasks and launch, stop, and watch them from a dedicated sidebar.
 
 <div align="center">
 
-<img src="media/screenshots/demo_1.gif" alt="Task Dashboard demo" width="800" />
+<img src="https://raw.githubusercontent.com/Amitoj02/task-dashboard/main/media/screenshots/demo_1.gif" alt="Task Dashboard demo" width="800" />
 
 </div>
 
@@ -46,13 +47,13 @@ PID, and duration at a glance.
 
 <div align="center">
 
-<img src="media/screenshots/screenshot_1.png" alt="Add / Edit task editor" width="800" />
+<img src="https://raw.githubusercontent.com/Amitoj02/task-dashboard/main/media/screenshots/screenshot_1.png" alt="Add / Edit task editor" width="800" />
 
 <sub><b>Add / Edit editor</b> - capture the command, working directory, environment, shell, icon, and restart policy in one form.</sub>
 
 <br /><br />
 
-<img src="media/screenshots/screenshot_2.png" alt="Task Definitions and Running Tasks views" width="800" />
+<img src="https://raw.githubusercontent.com/Amitoj02/task-dashboard/main/media/screenshots/screenshot_2.png" alt="Task Definitions and Running Tasks views" width="800" />
 
 <sub><b>Task Definitions &amp; Running Tasks</b> - organize your commands, then watch live status, PID, and uptime at a glance.</sub>
 

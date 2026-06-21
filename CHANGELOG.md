@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Task-failure notifications now actually fire. With the default `errorsOnly`
+  setting (and `all`), a failed task surfaces a notification; previously the
+  setting was honored nowhere. Auto-restart failures remain summarized by the
+  crash-loop breaker so a crash loop does not flood you with notifications.
+- Windows: native program and argument paths containing backslashes
+  (e.g. `C:\tools\app.exe`) are no longer mangled when a task runs without a shell.
+- Windows: stopping a task now attempts a graceful tree termination before force-
+  killing, so the stop grace period has real effect, and the kill no longer
+  blocks the extension host.
+- Deleting a task now prunes it from the persisted manual sort order instead of
+  leaving a stale entry behind.
+
+### Changed
+
+- The editor's **Startup delay** field is now labelled **Auto-restart delay**,
+  with a hint clarifying that it applies before each automatic restart - matching
+  what the setting has always done.
+
+### Security
+
+- Updated dev/test dependencies and added overrides to clear all `pnpm audit`
+  advisories (serialize-javascript, jsdiff). These are test-only tools and are
+  never shipped in the extension, which has zero runtime dependencies.
+
 ## [1.0.0] - 2026-06-21
 
 Initial public release.
