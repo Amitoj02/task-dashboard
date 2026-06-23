@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Windows: tasks whose command is a batch-style CLI shim - `npm`, `npx`, `yarn`,
+  `pnpm`, `composer`, `tsc`, and friends are all installed as `.cmd`/`.bat` files -
+  no longer fail to start with `spawn npm ENOENT`. The runner now resolves the
+  command against `PATH`/`PATHEXT` and routes a batch shim through `cmd.exe` (the
+  way a terminal does), while still spawning real `.exe`/`.com` programs directly.
+  Arguments are escaped so they reach the program literally, with no shell
+  interpretation, and no runtime dependency is added.
+
 ## [1.0.1] - 2026-06-21
 
 ### Fixed
