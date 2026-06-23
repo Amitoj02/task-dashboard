@@ -18,8 +18,14 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
+import { statSync } from 'node:fs';
 
 import { Emitter, type IDisposable } from '../util/event';
+import {
+  DEFAULT_PATHEXT,
+  planWindowsSpawn,
+  type WindowsSpawnPlan,
+} from './windowsCommand';
 import type { IProcessSpawner, ISpawnedProcess, SpawnOptions } from '../types/contracts';
 
 /** `true` on Windows, where group-kill is unavailable and `taskkill /T` is used. */
@@ -184,7 +190,16 @@ export class NodeProcessSpawner implements IProcessSpawner {
   public spawn(options: SpawnOptions): ISpawnedProcess {
     const detached = options.detached ?? !IS_WINDOWS;
 
-    const child = spawn(options.command, options.args, {
+    // On Windows, a bare `npm`/`yarn`/`composer`/… resolves to a `.cmd` shim
+    // that `spawn` cannot launch without a shell (`spawn npm ENOENT`). Resolve
+    // it and, when it is a batch shim, route it through `cmd.exe` with escaped
+    // args. Real `.exe`/`.com` programs (and every shell-mode invocation, whose
+    // command is itself `cmd.exe`/`powershell.exe`/…) are spawned unchanged.
+    const plan: WindowsSpawnPlan = IS_WINDOWS
+      ? this.planForWindows(options)
+      : { command: options.command, args: options.args, windowsVerbatimArguments: false };
+
+    const child = spawn(plan.command, plan.args, {
       cwd: options.cwd && options.cwd.trim().length > 0 ? options.cwd : undefined,
       env: options.env,
       windowsHide: true,
@@ -192,8 +207,72 @@ export class NodeProcessSpawner implements IProcessSpawner {
       // No stdin; pipe stdout/stderr so we can stream them.
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
+      windowsVerbatimArguments: plan.windowsVerbatimArguments,
     });
 
     return new NodeSpawnedProcess(child, detached);
   }
+
+  /**
+   * Resolves the Windows spawn plan for a command: a real executable is spawned
+   * directly; a `.cmd`/`.bat` shim is rewritten to run through `cmd.exe`. Reads
+   * `PATH`/`PATHEXT`/`ComSpec` from the child's resolved environment (falling
+   * back to the host's), since that is the environment the command will run in.
+   */
+  private planForWindows(options: SpawnOptions): WindowsSpawnPlan {
+    const env = options.env ?? process.env;
+    const pathValue = lookupEnv(env, 'PATH') ?? '';
+    const pathExtValue = lookupEnv(env, 'PATHEXT') ?? DEFAULT_PATHEXT;
+    const comspec = lookupEnv(env, 'ComSpec') ?? 'cmd.exe';
+    const cwd = options.cwd && options.cwd.trim().length > 0 ? options.cwd : process.cwd();
+
+    return planWindowsSpawn(options.command, options.args, {
+      pathDirs: splitWindowsList(pathValue).map(stripQuotes),
+      pathExt: splitWindowsList(pathExtValue).map((ext) => ext.toLowerCase()),
+      cwd,
+      comspec,
+      fileExists: fileExistsSync,
+    });
+  }
+}
+
+/** `true` if a regular file exists at `candidatePath` (any I/O error → `false`). */
+function fileExistsSync(candidatePath: string): boolean {
+  try {
+    return statSync(candidatePath).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** Splits a Windows `;`-separated list (`PATH`/`PATHEXT`), dropping empty entries. */
+function splitWindowsList(value: string): string[] {
+  return value
+    .split(';')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+/** Strips a single pair of surrounding double quotes from a `PATH` entry. */
+function stripQuotes(entry: string): string {
+  return entry.replace(/^"(.*)"$/, '$1');
+}
+
+/**
+ * Reads an environment variable case-insensitively. Windows env vars are
+ * case-insensitive, but the merged env object handed to the spawner is a plain
+ * object whose keys keep their original case (often `Path`, not `PATH`), so a
+ * direct lookup can miss. Falls back to the host's `process.env`.
+ */
+function lookupEnv(
+  env: Record<string, string | undefined>,
+  name: string
+): string | undefined {
+  const target = name.toLowerCase();
+  for (const key of Object.keys(env)) {
+    if (key.toLowerCase() === target && env[key] !== undefined) {
+      return env[key];
+    }
+  }
+  return process.env[name];
 }

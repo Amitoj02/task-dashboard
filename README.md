@@ -100,7 +100,10 @@ Definitions are restored when you reload the window. Nothing auto-runs on startu
 
 Task configuration is treated as untrusted: commands are never `eval`'d. By default
 a command is parsed into an argv vector and the program is spawned directly; shell
-execution is opt-in and passes the command as a single argument to the shell.
+execution is opt-in and passes the command as a single argument to the shell. On
+Windows, a command that resolves to a batch shim (`npm`, `yarn`, `composer`, … are
+all `.cmd` files) is run through `cmd.exe` with its arguments escaped so they are
+passed literally, never re-interpreted by the shell.
 
 ## Install
 
